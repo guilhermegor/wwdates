@@ -42,7 +42,15 @@ Tracked in git but **excluded from the published docs site** (`exclude_docs` in 
   `holidays()` (in `DateManipulation`) appends the runtime additions. `_added_holidays` is
   lazily initialised via `_get_added_holidays()`, independent of `__init__`. Regression test
   `test_nasdaq_add_holidays_merges_into_provider` added.
-- [x] Version bumped to `0.1.0`. All gates green (ruff, mypy, docstring, 278 tests, mkdocs strict,
+- [x] **Rich-by-default screen logging.** New `LogsEmitter(LogEmitter)` (`_internal/utils/
+  logs_emitter.py`) delegates to `logs.py`'s `CreateLog`; wired as `CacheManager`'s default sink,
+  so with no logger injected the screen line is now
+  `YYYY-MM-DD,HH:MM:SS.mmm INFO {Class} [method] msg` (was bare `[INFO] msg`); inject a logger to
+  route there instead. Fixed a latent `logs.py` bug: the caller-context stack-walker used a
+  `startswith` skip-set (`"utils.typing"`) that never matched the package-qualified module names —
+  switched to last-dotted-component matching so `{Class}` resolves. Base `LogEmitter` stays
+  minimal/injectable. Regression test + blueprintx lesson (`rich-default-log-emitter`) captured.
+- [x] Version bumped to `0.1.0`. All gates green (ruff, mypy, docstring, 279 tests, mkdocs strict,
   wheel build). PR **#1** open against `main`.
 
 ## Open / to-do

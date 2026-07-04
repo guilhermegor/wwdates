@@ -11,6 +11,7 @@ from datetime import datetime, timedelta
 from logging import Logger
 from pathlib import Path
 import pickle
+import re
 from typing import Any
 from unittest.mock import Mock, patch
 
@@ -19,7 +20,7 @@ import pytest
 from pytest_mock import MockerFixture
 
 from wwdates._internal.utils.cache.cache_manager import CacheManager
-from wwdates._internal.utils.retry import LogEmitter
+from wwdates._internal.utils.logs_emitter import LogsEmitter
 
 
 # --------------------------
@@ -312,7 +313,7 @@ def test_cache_df_decorator_hit(
 	None
 	"""
 	mock_func = mocker.Mock(return_value=sample_dataframe)
-	mock_log = mocker.patch.object(LogEmitter, "log_message")
+	mock_log = mocker.patch.object(cache_manager_custom.cls_log_emitter, "log_message")
 
 	class TestClass:
 		"""TestClass for testing cache_df decorator."""
@@ -395,7 +396,7 @@ def test_cache_df_decorator_miss(
 	None
 	"""
 	mock_func = mocker.Mock(return_value=sample_dataframe)
-	mock_log = mocker.patch.object(LogEmitter, "log_message")
+	mock_log = mocker.patch.object(cache_manager_custom.cls_log_emitter, "log_message")
 
 	class TestClass:
 		"""TestClass for testing cache_df decorator."""
@@ -996,3 +997,34 @@ def test_unicode_key(cache_manager_custom: CacheManager, sample_dataframe: pd.Da
 	cache_file = cache_manager_custom._get_cache_file_path(key)
 	assert cache_file.exists()
 	assert cache_file.name == "test_日本語__.pkl"
+
+
+def test_default_emitter_is_rich_and_prints_context(capsys: pytest.CaptureFixture[str]) -> None:
+	"""Test the default log sink is the rich LogsEmitter and prints a contextual line.
+
+	Guards the shipped default: with no logger injected, CacheManager must default to
+	``LogsEmitter`` (not the bare base ``LogEmitter``) so screen output carries a timestamp,
+	the level, and reconstructed ``{Class} [method]`` caller context — rather than the bare
+	``[INFO] message`` of the base seam.
+
+	Parameters
+	----------
+	capsys : pytest.CaptureFixture[str]
+		Pytest capture fixture for stdout/stderr.
+
+	Returns
+	-------
+	None
+	"""
+	cls_cache_manager = CacheManager(bool_persist_cache=False, bool_reuse_cache=False)
+	assert isinstance(cls_cache_manager.cls_log_emitter, LogsEmitter)
+
+	cls_cache_manager.cls_log_emitter.log_message("hello world", "info")
+	str_out = capsys.readouterr().out
+
+	# Rich line shape: "YYYY-MM-DD,HH:MM:SS.mmm INFO {Class} [method] hello world"
+	assert re.search(r"\d{4}-\d{2}-\d{2},\d{2}:\d{2}:\d{2}\.\d{3} INFO ", str_out)
+	assert "{" in str_out and "[" in str_out
+	assert "hello world" in str_out
+	# Not the bare base-emitter format.
+	assert "[INFO] hello world" not in str_out

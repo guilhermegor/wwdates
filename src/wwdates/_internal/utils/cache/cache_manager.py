@@ -44,6 +44,7 @@ from typing import Any
 
 import pandas as pd
 
+from wwdates._internal.utils.logs_emitter import LogsEmitter
 from wwdates._internal.utils.retry import LogEmitter
 from wwdates._internal.utils.typing import TypeChecker, type_checker
 
@@ -89,8 +90,9 @@ class CacheManager(metaclass=TypeChecker):
 		logger : Optional[Logger]
 			The stdlib logger to back the default log emitter (default: None)
 		cls_log_emitter : Optional[LogEmitter]
-			Injectable log sink; defaults to a stdlib-backed LogEmitter over ``logger``
-			(default: None)
+			Injectable log sink; defaults to a rich ``LogsEmitter`` over ``logger`` (timestamp,
+			level, and reconstructed ``{Class} [method]`` caller context). When ``logger`` is
+			None the rich line is printed to the screen (default: None)
 
 		Returns
 		-------
@@ -105,7 +107,7 @@ class CacheManager(metaclass=TypeChecker):
 		self.bool_reuse_cache = bool_reuse_cache
 		self.logger = logger
 		self.cls_log_emitter = (
-			cls_log_emitter if cls_log_emitter is not None else LogEmitter(logger)
+			cls_log_emitter if cls_log_emitter is not None else LogsEmitter(logger)
 		)
 		self._cache: dict[str, pd.DataFrame] = {}
 		self._path_cache_dir = self._get_cache_dir_path(path_cache_dir)
