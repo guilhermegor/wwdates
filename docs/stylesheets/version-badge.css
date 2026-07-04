@@ -22,3 +22,12 @@
 	display: flex;
 	align-items: center;
 }
+
+/* Hide the site title repeated at the top of the primary sidebar on desktop — the name
+   already appears in the masthead, so it is redundant there. Kept on the mobile drawer,
+   where it is the drawer's own heading. */
+@media screen and (min-width: 76.25em) {
+	.md-sidebar--primary .md-nav--primary > .md-nav__title {
+		display: none;
+	}
+}
