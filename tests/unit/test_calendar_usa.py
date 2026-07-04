@@ -15,7 +15,7 @@ import pytest
 from pytest_mock import MockerFixture
 from requests.exceptions import RequestException
 
-from wwdates.us import DatesUSFederalHolidays, DatesUSNasdaq
+from wwdates.us import DatesUSFederalHolidays, DatesUSFederalHolidaysWeb, DatesUSNasdaq
 
 
 # --------------------------
@@ -34,15 +34,15 @@ def nasdaq_instance() -> DatesUSNasdaq:
 
 
 @pytest.fixture
-def federal_instance() -> DatesUSFederalHolidays:
-	"""Fixture providing a DatesUSFederalHolidays instance.
+def federal_instance() -> DatesUSFederalHolidaysWeb:
+	"""Fixture providing a DatesUSFederalHolidaysWeb instance.
 
 	Returns
 	-------
-	DatesUSFederalHolidays
+	DatesUSFederalHolidaysWeb
 		Instance initialized with default parameters
 	"""
-	return DatesUSFederalHolidays(bool_reuse_cache=False)
+	return DatesUSFederalHolidaysWeb(bool_reuse_cache=False)
 
 
 @pytest.fixture
@@ -331,10 +331,10 @@ def test_nasdaq_validate_date_string_invalid_format() -> None:
 
 
 # --------------------------
-# Tests for DatesUSFederalHolidays
+# Tests for DatesUSFederalHolidaysWeb
 # --------------------------
 def test_federal_init_valid() -> None:
-	"""Test initialization of DatesUSFederalHolidays with valid parameters.
+	"""Test initialization of DatesUSFederalHolidaysWeb with valid parameters.
 
 	Verifies
 	--------
@@ -345,7 +345,7 @@ def test_federal_init_valid() -> None:
 	-------
 	None
 	"""
-	instance = DatesUSFederalHolidays(
+	instance = DatesUSFederalHolidaysWeb(
 		int_year_start=2024,
 		int_year_end=2025,
 		bool_persist_cache=False,
@@ -361,7 +361,7 @@ def test_federal_init_valid() -> None:
 
 
 def test_federal_holidays(mocker: MockerFixture, sample_federal_df: pd.DataFrame) -> None:
-	"""Test holidays method of DatesUSFederalHolidays.
+	"""Test holidays method of DatesUSFederalHolidaysWeb.
 
 	Verifies
 	--------
@@ -380,12 +380,12 @@ def test_federal_holidays(mocker: MockerFixture, sample_federal_df: pd.DataFrame
 	None
 	"""
 	mocker.patch.object(
-		DatesUSFederalHolidays, "get_holidays_years", return_value=sample_federal_df
+		DatesUSFederalHolidaysWeb, "get_holidays_years", return_value=sample_federal_df
 	)
 	mocker.patch.object(
-		DatesUSFederalHolidays, "transform_holidays", return_value=sample_federal_df
+		DatesUSFederalHolidaysWeb, "transform_holidays", return_value=sample_federal_df
 	)
-	instance = DatesUSFederalHolidays(bool_reuse_cache=False)
+	instance = DatesUSFederalHolidaysWeb(bool_reuse_cache=False)
 	result = instance.holidays()
 	assert isinstance(result, list)
 	assert len(result) == 2
@@ -414,9 +414,11 @@ def test_federal_get_holidays_years_valid(
 	-------
 	None
 	"""
-	mocker.patch.object(DatesUSFederalHolidays, "get_holidays_raw", return_value=sample_federal_df)
+	mocker.patch.object(
+		DatesUSFederalHolidaysWeb, "get_holidays_raw", return_value=sample_federal_df
+	)
 	mocker.patch("wwdates._internal.utils.cache.cache_manager.CacheManager.cache_df", lambda x: x)
-	instance = DatesUSFederalHolidays(
+	instance = DatesUSFederalHolidaysWeb(
 		int_year_start=2024, int_year_end=2025, bool_reuse_cache=False
 	)
 	result = instance.get_holidays_years()
@@ -459,11 +461,11 @@ def test_federal_get_holidays_raw_success(mocker: MockerFixture) -> None:
 
 	mock_scraper.launch = _fake_launch
 	mocker.patch(
-		"wwdates.us.federal_holidays.PlaywrightScraper",
+		"wwdates.us.federal_holidays_web.PlaywrightScraper",
 		return_value=mock_scraper,
 	)
 	mocker.patch("wwdates._internal.utils.cache.cache_manager.CacheManager.cache_df", lambda x: x)
-	instance = DatesUSFederalHolidays(bool_reuse_cache=False)
+	instance = DatesUSFederalHolidaysWeb(bool_reuse_cache=False)
 	result = instance.get_holidays_raw(2025)
 	assert isinstance(result, pd.DataFrame)
 	assert set(result.columns) == {"DATE", "WEEKDAY", "NAME", "YEAR"}
@@ -491,7 +493,7 @@ def test_federal_get_holidays_raw_navigation_failure(mocker: MockerFixture) -> N
 		return_value=False,
 	)
 	mocker.patch("wwdates._internal.utils.cache.cache_manager.CacheManager.cache_df", lambda x: x)
-	instance = DatesUSFederalHolidays(bool_reuse_cache=False)
+	instance = DatesUSFederalHolidaysWeb(bool_reuse_cache=False)
 	with pytest.raises(RuntimeError, match="Failed to fetch Federal holidays"):
 		instance.get_holidays_raw(2025)
 
@@ -513,7 +515,7 @@ def test_federal_transform_holidays_valid(sample_federal_df: pd.DataFrame) -> No
 	-------
 	None
 	"""
-	instance = DatesUSFederalHolidays()
+	instance = DatesUSFederalHolidaysWeb()
 	result = instance.transform_holidays(sample_federal_df)
 	assert "DATE_WINS" in result.columns
 	assert isinstance(result["DATE_WINS"].iloc[0], date)
@@ -534,7 +536,7 @@ def test_federal_parse_dates_valid() -> None:
 	-------
 	None
 	"""
-	instance = DatesUSFederalHolidays()
+	instance = DatesUSFederalHolidaysWeb()
 	result = instance._parse_dates("January 1", 2025)
 	assert result == date(2025, 1, 1)
 
@@ -550,7 +552,7 @@ def test_federal_parse_dates_invalid() -> None:
 	-------
 	None
 	"""
-	instance = DatesUSFederalHolidays()
+	instance = DatesUSFederalHolidaysWeb()
 	with pytest.raises(ValueError, match="Date string must contain month and day"):
 		instance._parse_dates("January", 2025)
 
@@ -566,7 +568,7 @@ def test_federal_validate_year_range_invalid() -> None:
 	-------
 	None
 	"""
-	instance = DatesUSFederalHolidays()
+	instance = DatesUSFederalHolidaysWeb()
 	with pytest.raises(ValueError, match="Start year must be less than or equal to end year"):
 		instance._validate_year_range(2025, 2024)
 
@@ -582,7 +584,7 @@ def test_federal_validate_year_negative() -> None:
 	-------
 	None
 	"""
-	instance = DatesUSFederalHolidays()
+	instance = DatesUSFederalHolidaysWeb()
 	with pytest.raises(ValueError, match="Year must be a positive integer"):
 		instance._validate_year(-1)
 
@@ -598,7 +600,7 @@ def test_federal_validate_federal_holidays_dataframe_empty() -> None:
 	-------
 	None
 	"""
-	instance = DatesUSFederalHolidays()
+	instance = DatesUSFederalHolidaysWeb()
 	with pytest.raises(ValueError, match="Federal holidays DataFrame cannot be empty"):
 		instance._validate_federal_holidays_dataframe(pd.DataFrame())
 
@@ -614,7 +616,7 @@ def test_federal_validate_federal_holidays_dataframe_missing_columns() -> None:
 	-------
 	None
 	"""
-	instance = DatesUSFederalHolidays()
+	instance = DatesUSFederalHolidaysWeb()
 	df_ = pd.DataFrame({"DATE": ["January 1"], "NAME": ["New Year's Day"]})
 	with pytest.raises(ValueError, match="DataFrame must contain columns"):
 		instance._validate_federal_holidays_dataframe(df_)
@@ -631,7 +633,7 @@ def test_federal_validate_date_string_empty() -> None:
 	-------
 	None
 	"""
-	instance = DatesUSFederalHolidays()
+	instance = DatesUSFederalHolidaysWeb()
 	with pytest.raises(ValueError, match="Date string cannot be empty"):
 		instance._validate_date_string("")
 
@@ -647,6 +649,70 @@ def test_federal_validate_date_string_invalid_format() -> None:
 	-------
 	None
 	"""
-	instance = DatesUSFederalHolidays()
+	instance = DatesUSFederalHolidaysWeb()
 	with pytest.raises(ValueError, match="Date string must contain month and day"):
 		instance._validate_date_string("January")
+
+
+# --------------------------
+# Tests for DatesUSFederalHolidays (offline, holidays package)
+# --------------------------
+def test_federal_offline_init_valid() -> None:
+	"""Test initialization of the offline DatesUSFederalHolidays.
+
+	Verifies
+	--------
+	- Year range is stored
+	- No cache manager is created (the offline calendar needs no cache)
+
+	Returns
+	-------
+	None
+	"""
+	instance = DatesUSFederalHolidays(int_year_start=2024, int_year_end=2025)
+	assert instance.int_year_start == 2024
+	assert instance.int_year_end == 2025
+	assert not hasattr(instance, "cls_cache_manager")
+
+
+def test_federal_offline_holidays_emit_statutory_and_observed() -> None:
+	"""Test that a weekend holiday emits both statutory and observed dates.
+
+	1 January 2023 fell on a Sunday, so both that Sunday (statutory) and the following
+	Monday (observed, per 5 U.S.C. §6103) must be present.
+
+	Returns
+	-------
+	None
+	"""
+	instance = DatesUSFederalHolidays(int_year_start=2023, int_year_end=2023)
+	set_dates = {day for _, day in instance.holidays()}
+	assert date(2023, 1, 1) in set_dates  # statutory New Year (Sunday)
+	assert date(2023, 1, 2) in set_dates  # observed closure (Monday)
+	assert instance.is_holiday(date(2023, 1, 1)) is True
+	assert instance.is_working_day(date(2023, 1, 2)) is False
+
+
+def test_federal_offline_holidays_offline_no_network() -> None:
+	"""Test that the offline calendar returns a non-empty (name, date) list.
+
+	Returns
+	-------
+	None
+	"""
+	result = DatesUSFederalHolidays(int_year_start=2025, int_year_end=2025).holidays()
+	assert isinstance(result, list)
+	assert result
+	assert all(isinstance(name, str) and isinstance(day, date) for name, day in result)
+
+
+def test_federal_offline_invalid_year_range() -> None:
+	"""Test that an inverted year range raises ValueError.
+
+	Returns
+	-------
+	None
+	"""
+	instance = DatesUSFederalHolidays(int_year_start=2026, int_year_end=2025)
+	with pytest.raises(ValueError, match="Start year must be less than or equal to end year"):
+		instance.holidays()

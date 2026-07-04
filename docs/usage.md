@@ -19,12 +19,15 @@ Or with Poetry:
 poetry add wwdates
 ```
 
-The `DatesUSFederalHolidays` provider drives a headless browser via Playwright. Install its
-browser binary once after installing the package:
+Everything above works offline after install — **no browser needed**. The one exception is the
+optional `DatesUSFederalHolidaysWeb` provider (a live scrape); if you use *that* class,
+install its Playwright browser once:
 
 ```bash
 playwright install chromium
 ```
+
+The recommended `DatesUSFederalHolidays` computes federal holidays offline and needs no browser.
 
 ---
 
@@ -38,14 +41,15 @@ from wwdates.br.anbima import DatesBRAnbima      # ANBIMA national holidays
 from wwdates.br.febraban import DatesBRFebraban  # FEBRABAN bank holidays
 from wwdates.br.b3 import DatesBRB3              # ANBIMA + B3 exchange extras
 from wwdates.us.nasdaq import DatesUSNasdaq      # Nasdaq trading calendar
-from wwdates.us.federal_holidays import DatesUSFederalHolidays
+from wwdates.us.federal_holidays import DatesUSFederalHolidays  # offline, recommended
+from wwdates.us.federal_holidays_web import DatesUSFederalHolidaysWeb  # live scrape (Playwright)
 ```
 
 You can also import from the country package:
 
 ```python
 from wwdates.br import DatesBRAnbima, DatesBRB3, DatesBRFebraban
-from wwdates.us import DatesUSNasdaq, DatesUSFederalHolidays
+from wwdates.us import DatesUSNasdaq, DatesUSFederalHolidays, DatesUSFederalHolidaysWeb
 ```
 
 Fetched calendars are cached locally so repeated calls stay fast and offline-friendly; the
@@ -79,7 +83,8 @@ cls_cal.working_days_range(date(2024, 12, 1), date(2024, 12, 31))
 ```
 
 `DatesBRB3` here is just an example — the same methods work on every provider
-(`DatesBRAnbima`, `DatesBRFebraban`, `DatesUSNasdaq`, `DatesUSFederalHolidays`); only the
+(`DatesBRAnbima`, `DatesBRFebraban`, `DatesUSNasdaq`, `DatesUSFederalHolidays`,
+`DatesUSFederalHolidaysWeb`); only the
 loaded holiday set differs. See the [API Reference](api.md) for the full list of classes and
 their shared methods.
 

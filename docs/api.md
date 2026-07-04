@@ -15,11 +15,13 @@ operations](#shared-calendar-operations) documented at the bottom of this page.
 | [`DatesBRFebraban`](#datesbrfebraban) | `wwdates.br.febraban` | Brazilian **bank** holidays (FEBRABAN) |
 | [`DatesBRB3`](#datesbrb3) | `wwdates.br.b3` | ANBIMA national **+ B3 exchange** non-trading days |
 | [`DatesUSNasdaq`](#datesusnasdaq) | `wwdates.us.nasdaq` | US **Nasdaq** market-closure days |
-| [`DatesUSFederalHolidays`](#datesusfederalholidays) | `wwdates.us.federal_holidays` | US **federal** public holidays |
+| [`DatesUSFederalHolidays`](#datesusfederalholidays) | `wwdates.us.federal_holidays` | US **federal** public holidays (offline, default) |
+| [`DatesUSFederalHolidaysWeb`](#datesusfederalholidaysweb) | `wwdates.us.federal_holidays_web` | US federal holidays via live scrape (Playwright) |
 
 ### Constructor parameters
 
-All providers share these constructor parameters:
+The **network-backed** providers (`DatesBRAnbima`, `DatesBRFebraban`, `DatesBRB3`,
+`DatesUSNasdaq`, `DatesUSFederalHolidaysWeb`) share these cache parameters:
 
 | Parameter | Type | Default | Purpose |
 |-----------|------|---------|---------|
@@ -29,6 +31,11 @@ All providers share these constructor parameters:
 | `int_cache_ttl_days` | `int` | `30` | Prune cache files older than N days. |
 | `path_cache_dir` | `str \| None` | `None` | Override the default cache directory. |
 | `logger` | `logging.Logger \| None` | `None` | Logger for cache / fetch messages. |
+
+The **offline** `DatesUSFederalHolidays` computes its holidays locally, so it has **no cache
+parameters** — its constructor takes only `int_year_start`, `int_year_end`, and an optional
+`logger`. Providers that fetch a year range (`DatesBRFebraban`, both US federal classes) also
+take `int_year_start` / `int_year_end`.
 
 ---
 
@@ -148,10 +155,45 @@ Thanksgiving, Christmas. Use this provider for **US market trading-day** logic.
 
 ### `DatesUSFederalHolidays`
 
+The **default, recommended** US federal calendar — computed **offline**, no network and no
+browser.
+
 ```python
 from wwdates.us.federal_holidays import DatesUSFederalHolidays
 
 DatesUSFederalHolidays(
+    int_year_start=2024, int_year_end=2025,   # year range to compute
+    logger=None,
+)
+```
+
+**Holidays:** the eleven US **federal** public holidays for the requested year range (New
+Year's, MLK, Washington's Birthday, Memorial, Juneteenth, Independence, Labor, Columbus,
+Veterans, Thanksgiving, Christmas), computed from their statutory rules via the
+[`holidays`](https://pypi.org/project/holidays/) package.
+
+**Observed-day rule (5 U.S.C. §6103).** When a holiday falls on a weekend, the observed federal
+closure day is **also** emitted: a Saturday holiday is observed the preceding Friday, a Sunday
+holiday the following Monday. Both the statutory date **and** the observed date are returned —
+e.g. for 2023, New Year's Day appears on **Sunday 1 Jan** *and* the observed closure on
+**Monday 2 Jan**. Nothing is hidden or moved; the Monday is added because federal offices,
+banks, and markets are genuinely closed then, which is required for correct working-day math.
+
+**Source:** the `holidays` package (offline computation). **No cache parameters** — there is
+nothing to fetch, so the constructor takes only the year range and an optional logger.
+
+**Provider-specific methods:** none beyond the [shared surface](#shared-calendar-operations);
+`holidays()` returns the computed `(name, date)` list.
+
+### `DatesUSFederalHolidaysWeb`
+
+The **live-scrape** variant — use only when you specifically want the dates exactly as
+published on federalholidays.net.
+
+```python
+from wwdates.us.federal_holidays_web import DatesUSFederalHolidaysWeb
+
+DatesUSFederalHolidaysWeb(
     int_year_start=2025, int_year_end=2026,   # year range to fetch
     bool_persist_cache=True, bool_reuse_cache=True,
     int_days_cache_expiration=1, int_cache_ttl_days=30,
@@ -159,18 +201,18 @@ DatesUSFederalHolidays(
 )
 ```
 
-**Holidays:** US **federal** public holidays for the requested year range (the eleven federal
-holidays — New Year's, MLK, Washington's Birthday, Memorial, Juneteenth, Independence, Labor,
-Columbus, Veterans, Thanksgiving, Christmas). Distinct from Nasdaq market closures.
+**Holidays:** US federal holidays as published on the site, for the requested year range.
 
 **Source:** `federalholidays.net` — scraped with **Playwright**, so run `playwright install
-chromium` once before first use.
+chromium` once before first use. Prefer the offline `DatesUSFederalHolidays` unless you need
+this site's exact published dates.
 
 **Provider-specific methods:**
 
 | Method | Signature | Returns | Description |
 |--------|-----------|---------|-------------|
 | `get_holidays_years` | `()` | `DataFrame` | Scrape the federal holidays for the configured years. |
+| `get_holidays_raw` | `(int_year, timeout=5000)` | `DataFrame` | Scrape one year via Playwright. |
 | `transform_holidays` | `(df_)` | `DataFrame` | Normalise the raw rows to typed `(NAME, DATE)`. |
 
 ---

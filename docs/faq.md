@@ -6,18 +6,34 @@ Common questions and fixes when using `wwdates`.
 
 ---
 
-## `DatesUSFederalHolidays` raises a Playwright / browser error
+## Do I need `playwright install chromium`? / A provider raises a browser error
 
-That provider scrapes with a headless browser, which needs the Chromium binary installed
-once (separate from the pip package):
+**Almost certainly not.** Every provider works offline after `pip install wwdates` — including
+the recommended `DatesUSFederalHolidays`, which computes US federal holidays locally (no network,
+no browser). Use it and you never touch Playwright.
+
+The **only** class that needs a browser is the optional `DatesUSFederalHolidaysWeb` — a live
+scrape of federalholidays.net. If you use that one, install the Chromium binary once (separate
+from the pip package):
 
 ```bash
 playwright install chromium
 ```
 
-If you deploy in a container, run this in the image build so the browser ships with it. The
-other four providers (`DatesBRAnbima`, `DatesBRFebraban`, `DatesBRB3`, `DatesUSNasdaq`) use
-plain HTTP and need no browser.
+If you deploy in a container, run this in the image build so the browser ships with it. Prefer
+`DatesUSFederalHolidays` (offline) unless you specifically need the scraped site's published
+dates.
+
+## Why does a US federal holiday show up on both a Sunday *and* the next Monday?
+
+That is correct and intentional. `DatesUSFederalHolidays` follows the federal observed-day rule
+(5 U.S.C. §6103): when a holiday lands on a weekend, the observed closure day is emitted **in
+addition** to the statutory date — a Saturday holiday is observed the preceding Friday, a Sunday
+holiday the following Monday. So for 2023, New Year's Day appears on **Sun 1 Jan** (statutory)
+*and* **Mon 2 Jan** (observed). Nothing is moved or hidden; the Monday is added because federal
+offices, banks, and markets are genuinely closed then — and `is_working_day(Mon 2 Jan)` must
+return `False` for correct business-day math. Brazilian calendars have no such rule and keep
+each holiday on its published date.
 
 ---
 

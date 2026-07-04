@@ -1,7 +1,7 @@
 [tool.poetry]
 name = "wwdates"
 version = "0.1.0"
-description = "A Python library for worldwide holidays, comprehensive date operations and formatting."
+description = "Global calendar system. Python package."
 authors = ["guilhermegor"]
 readme = "README.md"
 license = "MIT"
@@ -39,6 +39,7 @@ playwright = "^1.61.0"
 xlrd = "^2.0.2"
 lxml = "^6.1.1"
 tzdata = "^2026.2"
+holidays = "^0.99"
 
 [tool.poetry.group.dev.dependencies]
 pre-commit = ">=4.1.0"

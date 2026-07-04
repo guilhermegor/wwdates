@@ -40,11 +40,9 @@ cls_cal.add_working_days(date(2024, 12, 24), 3)     # skips holidays + weekends
 cls_cal.holidays()                                  # [(name, date), ...]
 ```
 
-The US Federal Holidays provider scrapes with Playwright, so install its browser once:
-
-```bash
-playwright install chromium
-```
+Everything works offline after install. Only the optional `DatesUSFederalHolidaysWeb` (a live
+scrape) needs a browser — `playwright install chromium` — the rest, including the recommended
+offline `DatesUSFederalHolidays`, do not.
 
 ---
 
@@ -56,7 +54,8 @@ playwright install chromium
 | 🇧🇷 Brazil | `from wwdates.br.febraban import DatesBRFebraban` | FEBRABAN bank holidays |
 | 🇧🇷 Brazil | `from wwdates.br.b3 import DatesBRB3` | ANBIMA + B3 exchange extras |
 | 🇺🇸 USA | `from wwdates.us.nasdaq import DatesUSNasdaq` | Nasdaq trading calendar |
-| 🇺🇸 USA | `from wwdates.us.federal_holidays import DatesUSFederalHolidays` | US federal holidays |
+| 🇺🇸 USA | `from wwdates.us.federal_holidays import DatesUSFederalHolidays` | US federal holidays (offline, recommended) |
+| 🇺🇸 USA | `from wwdates.us.federal_holidays_web import DatesUSFederalHolidaysWeb` | US federal holidays via live scrape |
 
 ---
 
