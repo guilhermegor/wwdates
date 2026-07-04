@@ -23,9 +23,32 @@ plain HTTP and need no browser.
 
 ## Where are the cached holiday files, and how do I clear them?
 
-Fetched calendars are cached to `~/.cache/wwdates_calendar_cache/` (or
-`%APPDATA%\wwdates_calendar_cache` on Windows). Delete that directory to force a clean
-re-fetch, or construct a provider with `bool_persist_cache=False` to skip disk entirely:
+Fetched calendars are cached per platform:
+
+| OS | Default cache directory |
+|----|-------------------------|
+| Linux | `~/.cache/wwdates_calendar_cache/` |
+| macOS | `~/.cache/wwdates_calendar_cache/` |
+| Windows | `%APPDATA%\wwdates_calendar_cache\` |
+
+Delete that directory to force a clean re-fetch:
+
+```bash
+# Linux
+rm -rf ~/.cache/wwdates_calendar_cache
+```
+
+```bash
+# macOS
+rm -rf ~/.cache/wwdates_calendar_cache
+```
+
+```powershell
+# Windows (PowerShell)
+Remove-Item -Recurse -Force "$env:APPDATA\wwdates_calendar_cache"
+```
+
+Or skip disk entirely by constructing a provider with `bool_persist_cache=False`:
 
 ```python
 from wwdates.br.b3 import DatesBRB3
