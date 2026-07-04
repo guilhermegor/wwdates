@@ -203,9 +203,10 @@ DatesUSFederalHolidaysWeb(
 
 **Holidays:** US federal holidays as published on the site, for the requested year range.
 
-**Source:** `federalholidays.net` — scraped with **Playwright**, so run `playwright install
-chromium` once before first use. Prefer the offline `DatesUSFederalHolidays` unless you need
-this site's exact published dates.
+**Source:** `federalholidays.net` — scraped with **Playwright**, which ships only with the
+optional `web` extra. Enable it with `pip install "wwdates[web]"` then `playwright install
+chromium` before first use; using this class without them raises an `ImportError`. Prefer the
+offline `DatesUSFederalHolidays` unless you need this site's exact published dates.
 
 **Provider-specific methods:**
 

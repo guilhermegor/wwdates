@@ -1,5 +1,5 @@
 site_name: wwdates
-site_description: Worldwide holiday calendars and business-day date operations for Python
+site_description: Global calendar system. Python package.
 repo_url: https://github.com/guilhermegor/wwdates
 nav:
   - Home: index.md

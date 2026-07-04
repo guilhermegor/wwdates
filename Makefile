@@ -7,7 +7,7 @@ POETRY := bash bin/poetry_exec.sh
 # -------------------
 # VIRTUAL ENVIRONMENT
 # -------------------
-.PHONY: init ensure_env venv update_venv precommit bump_version
+.PHONY: init ensure_env venv update_venv precommit bump_version changelog
 
 init: ensure_env venv precommit
 
@@ -37,6 +37,13 @@ bump_version:
 	@$(POETRY) version $(LEVEL)
 	@git add pyproject.toml
 	@echo "Version bumped to $$($(POETRY) version -s)"
+
+# Regenerate CHANGELOG.md locally from the conventional-commit history (preview). The
+# authoritative changelog is produced automatically on merge to main by
+# .github/workflows/changelog.yaml — you normally do not need to run this by hand.
+changelog:
+	@$(POETRY) run cz changelog
+	@echo "CHANGELOG.md regenerated"
 
 # -------------------
 # CORPORATE CA
@@ -182,6 +189,7 @@ help:
 	@echo "  update_venv          Update all Poetry dependencies"
 	@echo "  precommit            Install pre-commit hooks (commit-msg + pre-push; skips off a git tree)"
 	@echo "  bump_version LEVEL=<x>  Bump version (patch|minor|major|pre*|X.Y.Z; default patch)"
+	@echo "  changelog            Regenerate CHANGELOG.md locally (auto-updated on merge to main)"
 	@echo ""
 	@echo "Corporate CA"
 	@echo "  get_corporate_ca     Extract a TLS-proxy CA into bin/corporate_ca.pem (corporate networks)"

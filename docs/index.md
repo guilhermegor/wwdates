@@ -1,6 +1,6 @@
-# **wwdates**
+# **wwdates** <img src="assets/logo_wwdates_no_description.png" align="right" width="200" style="border-radius: 15px;" alt="wwdates logo">
 
-Worldwide holiday calendars and business-day date operations for Python.
+Global calendar system.
 
 `wwdates` fetches official holiday calendars for Brazil (ANBIMA, FEBRABAN, B3) and the United
 States (Nasdaq, Federal Holidays), then layers a rich set of working-day / date helpers on top
@@ -41,8 +41,9 @@ cls_cal.holidays()                                  # [(name, date), ...]
 ```
 
 Everything works offline after install. Only the optional `DatesUSFederalHolidaysWeb` (a live
-scrape) needs a browser — `playwright install chromium` — the rest, including the recommended
-offline `DatesUSFederalHolidays`, do not.
+scrape) needs a browser — enable it with `pip install "wwdates[web]"` then
+`playwright install chromium`. The rest, including the recommended offline
+`DatesUSFederalHolidays`, need neither. See [Usage](usage.md#optional-the-browser-scrape-provider-web-extra).
 
 ---
 

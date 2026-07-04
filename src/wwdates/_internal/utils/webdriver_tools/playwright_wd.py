@@ -5,19 +5,39 @@ automation,element selection, and content extraction. Includes robust error hand
 capabilities.
 """
 
+from __future__ import annotations
+
 from contextlib import contextmanager, suppress
 from datetime import datetime
 from logging import Logger
 import os
 from pathlib import Path
 import re
-from typing import Any, Literal, Optional, TypedDict
+from typing import TYPE_CHECKING, Any, Literal, Optional, TypedDict
 
-from playwright.sync_api import Browser, BrowserContext, Page, Playwright, sync_playwright
 import requests
 
 from wwdates._internal.utils.retry import LogEmitter
 from wwdates._internal.utils.typing import TypeChecker
+
+
+# Playwright ships only with the optional `web` extra (pip install "wwdates[web]"). The type
+# names are imported under TYPE_CHECKING (annotations are deferred to strings by the
+# `from __future__ import annotations` above, so they never need Playwright at runtime), and the
+# only runtime symbol — `sync_playwright` — is imported guarded so the module, and therefore
+# `import wwdates.us`, still loads without the extra installed.
+if TYPE_CHECKING:
+	from playwright.sync_api import Browser, BrowserContext, Page, Playwright
+
+try:
+	from playwright.sync_api import sync_playwright
+except ImportError:  # pragma: no cover - exercised only when the `web` extra is absent
+	sync_playwright = None  # type: ignore[assignment]
+
+_WEB_EXTRA_HINT = (
+	"Playwright is required for the web-scrape provider. Install it with "
+	'`pip install "wwdates[web]"` and then `playwright install chromium`.'
+)
 
 
 class CreateLog:
@@ -132,7 +152,7 @@ class PlaywrightScraper(metaclass=TypeChecker):
 		self.page: Page | None = None
 
 	@contextmanager
-	def launch(self) -> "PlaywrightScraper":
+	def launch(self) -> PlaywrightScraper:
 		"""Context manager for browser session.
 
 		Yields
@@ -142,9 +162,13 @@ class PlaywrightScraper(metaclass=TypeChecker):
 
 		Raises
 		------
+		ImportError
+			If the optional ``web`` extra (Playwright) is not installed.
 		RuntimeError
 			If browser launch fails
 		"""
+		if sync_playwright is None:
+			raise ImportError(_WEB_EXTRA_HINT)
 		launch_args: list[str] = []
 
 		try:

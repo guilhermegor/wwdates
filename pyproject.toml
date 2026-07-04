@@ -35,11 +35,26 @@ openpyxl = ">=3.1.0"
 requests = "^2.34.2"
 businesstimedelta = "^1.0.1"
 python-dateutil = "^2.9.0.post0"
-playwright = "^1.61.0"
 xlrd = "^2.0.2"
 lxml = "^6.1.1"
 tzdata = "^2026.2"
 holidays = "^0.99"
+# Optional — only DatesUSFederalHolidaysWeb (the live-scrape provider) needs a browser.
+# Installed via the `web` extra: pip install "wwdates[web]".
+playwright = { version = "^1.61.0", optional = true }
+
+[tool.poetry.extras]
+# `pip install "wwdates[web]"` adds Playwright for the live-scrape DatesUSFederalHolidaysWeb
+# provider. After installing, run `playwright install chromium` once to fetch the browser.
+web = ["playwright"]
+
+[tool.commitizen]
+# Conventional-commit driven changelog. `make bump_version` regenerates CHANGELOG.md from the
+# commit history; the version is read from [tool.poetry] so there is a single source of truth.
+name = "cz_conventional_commits"
+version_provider = "poetry"
+tag_format = "v$version"
+update_changelog_on_bump = true
 
 [tool.poetry.group.dev.dependencies]
 pre-commit = ">=4.1.0"

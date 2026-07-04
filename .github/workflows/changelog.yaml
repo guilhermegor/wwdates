@@ -1,0 +1,55 @@
+name: Update Changelog
+
+# Regenerate CHANGELOG.md from the conventional-commit history whenever a commit lands on the
+# default branch (i.e. after a PR is merged) and commit it back. This is the authoritative
+# changelog update — it reflects what actually merged into main, not a feature branch.
+#
+# Branch protection: main is protected, so the push below must come from an identity allowed to
+# bypass the "require a pull request" rule. Provide a fine-grained PAT (Contents: write) as the
+# `CHANGELOG_TOKEN` secret and add its account/app to the branch-protection bypass list. If the
+# secret is absent the workflow falls back to GITHUB_TOKEN, which only works when protection
+# permits Actions to push directly. The bot commit carries `[skip ci]` so it neither loops nor
+# re-runs the test suite.
+on:
+  push:
+    branches:
+      - main
+      - master
+
+permissions:
+  contents: write
+
+jobs:
+  changelog:
+    # Skip the run triggered by our own changelog commit.
+    if: "!contains(github.event.head_commit.message, '[skip ci]')"
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          token: ${{ secrets.CHANGELOG_TOKEN || secrets.GITHUB_TOKEN }}
+
+      - name: Set Up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.x"
+
+      - name: Install Commitizen
+        run: pip install commitizen
+
+      - name: Regenerate CHANGELOG.md
+        run: cz changelog
+
+      - name: Commit and Push if Changed
+        run: |
+          if git diff --quiet -- CHANGELOG.md; then
+            echo "CHANGELOG.md is already up to date."
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add CHANGELOG.md
+          git commit -m "docs: update changelog [skip ci]"
+          git push

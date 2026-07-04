@@ -19,15 +19,26 @@ Or with Poetry:
 poetry add wwdates
 ```
 
-Everything above works offline after install — **no browser needed**. The one exception is the
-optional `DatesUSFederalHolidaysWeb` provider (a live scrape); if you use *that* class,
-install its Playwright browser once:
+Everything above works offline after install — **no browser needed**. The recommended
+`DatesUSFederalHolidays` computes federal holidays locally.
+
+### Optional: the browser-scrape provider (`[web]` extra)
+
+**Only** `DatesUSFederalHolidaysWeb` needs a browser — it scrapes federalholidays.net with
+Playwright, which the base package does **not** install. It is **vital only when you
+specifically want that provider's live-scraped dates**; otherwise use the offline
+`DatesUSFederalHolidays` and skip this.
+
+Install the optional `web` extra (quote the brackets so the shell does not glob them), then
+download the browser binary:
 
 ```bash
-playwright install chromium
+pip install "wwdates[web]"   # adds Playwright
+playwright install chromium  # one-time browser download (pip cannot do this)
 ```
 
-The recommended `DatesUSFederalHolidays` computes federal holidays offline and needs no browser.
+Without both, constructing/using `DatesUSFederalHolidaysWeb` raises a clear `ImportError` with
+these instructions.
 
 ---
 

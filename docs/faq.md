@@ -13,16 +13,19 @@ the recommended `DatesUSFederalHolidays`, which computes US federal holidays loc
 no browser). Use it and you never touch Playwright.
 
 The **only** class that needs a browser is the optional `DatesUSFederalHolidaysWeb` — a live
-scrape of federalholidays.net. If you use that one, install the Chromium binary once (separate
-from the pip package):
+scrape of federalholidays.net. Playwright is **not** installed by the base package; enable it
+with the `web` extra (quote the brackets so the shell does not glob them), then download the
+browser binary:
 
 ```bash
-playwright install chromium
+pip install "wwdates[web]"   # adds Playwright
+playwright install chromium  # one-time browser download (pip cannot do this)
 ```
 
-If you deploy in a container, run this in the image build so the browser ships with it. Prefer
-`DatesUSFederalHolidays` (offline) unless you specifically need the scraped site's published
-dates.
+Constructing or using `DatesUSFederalHolidaysWeb` without both steps raises an `ImportError`
+telling you to run them. If you deploy in a container, run both in the image build so the browser
+ships with it. Prefer `DatesUSFederalHolidays` (offline) unless you specifically need the scraped
+site's published dates.
 
 ## Why does a US federal holiday show up on both a Sunday *and* the next Monday?
 

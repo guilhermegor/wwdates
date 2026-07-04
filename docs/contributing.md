@@ -191,3 +191,16 @@ Configure once, in repository settings:
 
 Documentation is published separately — every push to `main` runs
 `.github/workflows/docs.yaml`, which builds this site and deploys it to GitHub Pages.
+
+## Changelog automation (maintainers)
+
+`CHANGELOG.md` is regenerated on every merge to `main` by `.github/workflows/changelog.yaml`
+(runs `cz changelog`, commits the result with `[skip ci]`). Because `main` is **protected**, the
+workflow's push must come from an identity allowed to bypass the "require a pull request" rule:
+
+- Create a fine-grained **PAT** with **Contents: write** on this repo and add it as the
+  `CHANGELOG_TOKEN` repository secret.
+- Add that token's account (or a GitHub App) to the branch-protection **bypass** list.
+
+Without `CHANGELOG_TOKEN` the workflow falls back to `GITHUB_TOKEN`, which can push only if branch
+protection permits Actions to do so. Preview locally any time with `make changelog`.

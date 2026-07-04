@@ -1,4 +1,4 @@
-# wwdates <img src="assets/logo_wwdates.png" align="right" width="200" style="border-radius: 15px;" alt="wwdates">
+# wwdates <img src="assets/logo_wwdates_no_description.png" align="right" width="200" style="border-radius: 15px;" alt="wwdates">
 
 [![Project Status: Active](https://www.repostatus.org/badges/latest/active.svg)](https://www.repostatus.org/#active)
 ![Python Version](https://img.shields.io/badge/python-3.10%2B-blue.svg)
@@ -26,14 +26,14 @@ offline-friendly.
 One class per calendar source; all share the same date-operations surface — they differ only in
 **which** holidays they load.
 
-| Provider | Import | Holidays |
-|----------|--------|----------|
-| `DatesBRAnbima` | `wwdates.br.anbima` | 🇧🇷 ANBIMA national holidays |
-| `DatesBRFebraban` | `wwdates.br.febraban` | 🇧🇷 FEBRABAN bank holidays |
-| `DatesBRB3` | `wwdates.br.b3` | 🇧🇷 ANBIMA + B3 exchange non-trading days |
-| `DatesUSNasdaq` | `wwdates.us.nasdaq` | 🇺🇸 Nasdaq market closures |
-| `DatesUSFederalHolidays` | `wwdates.us.federal_holidays` | 🇺🇸 US federal holidays (offline, recommended) |
-| `DatesUSFederalHolidaysWeb` | `wwdates.us.federal_holidays_web` | 🇺🇸 US federal holidays via live scrape |
+| Provider                    | Import                            | Holidays                                      |
+| --------------------------- | --------------------------------- | --------------------------------------------- |
+| `DatesBRAnbima`             | `wwdates.br.anbima`               | 🇧🇷 ANBIMA national holidays                   |
+| `DatesBRFebraban`           | `wwdates.br.febraban`             | 🇧🇷 FEBRABAN bank holidays                     |
+| `DatesBRB3`                 | `wwdates.br.b3`                   | 🇧🇷 ANBIMA + B3 exchange non-trading days      |
+| `DatesUSNasdaq`             | `wwdates.us.nasdaq`               | 🇺🇸 Nasdaq market closures                     |
+| `DatesUSFederalHolidays`    | `wwdates.us.federal_holidays`     | 🇺🇸 US federal holidays (offline, recommended) |
+| `DatesUSFederalHolidaysWeb` | `wwdates.us.federal_holidays_web` | 🇺🇸 US federal holidays via live scrape        |
 
 ### ⚙️ Shared calendar operations
 
@@ -62,15 +62,26 @@ Or with Poetry:
 poetry add wwdates
 ```
 
-Everything works offline after install — **no browser needed**. The one exception is the optional
-`DatesUSFederalHolidaysWeb` provider (a live scrape); if you use it, install its Playwright browser
-once:
+Everything works offline after install — **no browser needed**. The recommended
+`DatesUSFederalHolidays` computes federal holidays locally.
+
+### Optional: the browser-scrape provider (`[web]` extra)
+
+**Only** the `DatesUSFederalHolidaysWeb` provider needs a browser — it scrapes
+federalholidays.net with Playwright, which is **not** installed by the base package. It is
+**vital only if you specifically want that provider's live-scraped dates**; otherwise skip this
+entirely and use the offline `DatesUSFederalHolidays`.
+
+To enable it, install the optional `web` extra (note the brackets — quote them so the shell does
+not glob), then fetch the browser binary:
 
 ```bash
-playwright install chromium
+pip install "wwdates[web]"   # adds Playwright
+playwright install chromium  # one-time browser download (pip cannot do this step)
 ```
 
-The recommended `DatesUSFederalHolidays` computes federal holidays offline and needs no browser.
+Without both steps, constructing/using `DatesUSFederalHolidaysWeb` raises a clear `ImportError`
+telling you to run them.
 
 ### Quick start
 

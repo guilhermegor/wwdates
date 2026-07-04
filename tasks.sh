@@ -55,6 +55,14 @@ bump_version() {
 	echo "Version bumped to $(poetry_exec version -s)"
 }
 
+changelog() {
+	# Regenerate CHANGELOG.md locally from the conventional-commit history (preview). The
+	# authoritative changelog is produced automatically on merge to main by
+	# .github/workflows/changelog.yaml — you normally do not need to run this by hand.
+	poetry_exec run cz changelog
+	echo "CHANGELOG.md regenerated"
+}
+
 # -------------------
 # CORPORATE CA
 # -------------------
@@ -233,6 +241,7 @@ Virtual Environment
   update_venv          Update all Poetry dependencies
   precommit            Install pre-commit hooks (commit-msg + pre-push; skips off a git tree)
   bump_version         Bump version: LEVEL=<patch|minor|major|pre*|X.Y.Z> (default patch); also accepts a positional arg
+  changelog            Regenerate CHANGELOG.md locally (auto-updated on merge to main)
 
 Corporate CA
   get_corporate_ca     Extract a TLS-proxy CA into bin/corporate_ca.pem (corporate networks)
@@ -289,6 +298,7 @@ venv) venv ;;
 update_venv) update_venv ;;
 precommit) precommit ;;
 bump_version) bump_version "${2:-}" ;;
+changelog) changelog ;;
 get_corporate_ca) get_corporate_ca ;;
 unit_tests) unit_tests ;;
 integration_tests) integration_tests ;;
