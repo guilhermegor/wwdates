@@ -700,15 +700,15 @@ class PlaywrightScraper(metaclass=TypeChecker):
 		--------
 		Basic usage:
 		>>> scraper = PlaywrightScraper()
-		>>> data = scraper.get_json("https://api.example.com/data.json")
+		>>> data = scraper.get_json("<api-url>")  # any JSON endpoint
 		>>> print(data["results"])
 
 		With cookies:
 		>>> cookies = {"session": "abc123", "user_pref": "en"}
-		>>> data = scraper.get_json("https://protected-api.com/data.json", cookies=cookies)
+		>>> data = scraper.get_json("<api-url>", cookies=cookies)
 
 		With timeout:
-		>>> data = scraper.get_json("https://slow-api.com/data.json", timeout=30000)
+		>>> data = scraper.get_json("<api-url>", timeout=30000)
 
 		Notes
 		-----

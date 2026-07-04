@@ -1,4 +1,4 @@
-# Wwdates <img src="assets/logo_lorem_ipsum.png" align="right" width="200" style="border-radius: 15px;" alt="Wwdates">
+# wwdates <img src="assets/logo_lorem_ipsum.png" align="right" width="200" style="border-radius: 15px;" alt="Wwdates">
 
 [![Project Status: Active](https://www.repostatus.org/badges/latest/active.svg)](https://www.repostatus.org/#active)
 ![Python Version](https://img.shields.io/badge/python-${PYTHON_VERSIONS}-blue.svg)
@@ -17,22 +17,26 @@ ${PROJECT_DESCRIPTION}
 > Group features by domain or capability — one `###` heading per area.
 
 ### 🧩 Capability Group 1
+
 - [Feature placeholder 1](${LINK_PLACEHOLDER})
 - [Feature placeholder 2](${LINK_PLACEHOLDER})
 - [Feature placeholder 3](${LINK_PLACEHOLDER})
 
 ### 🧩 Capability Group 2
+
 - [Feature placeholder 4](${LINK_PLACEHOLDER})
 - [Feature placeholder 5](${LINK_PLACEHOLDER})
 - [Feature placeholder 6](${LINK_PLACEHOLDER})
 
 ### ⚙️ Utilities
+
 - [Utility placeholder 1](${LINK_PLACEHOLDER})
 - [Utility placeholder 2](${LINK_PLACEHOLDER})
 
 ## 🚀 Getting Started
 
 ### Prerequisites
+
 - Python ${PYTHON_VERSIONS}
 - Poetry (recommended)
 - Optional: Makefile
@@ -40,11 +44,13 @@ ${PROJECT_DESCRIPTION}
 ### Installation
 
 **Option 1: Pip (recommended)**
+
 ```bash
 pip install ${PYPI_NAME}
 ```
 
 **Option 2: Build from source**
+
 ```bash
 git clone https://github.com/${GITHUB_USERNAME}/${PROJECT_SLUG}.git
 cd ${PROJECT_SLUG}
@@ -55,17 +61,20 @@ poetry shell
 ```
 
 **Make (optional automation)**
+
 - Windows: install via MinGW or Chocolatey
 - macOS: Xcode CLI tools or Homebrew
 - Linux: sudo apt-get install build-essential
 
 ### Running Tests
+
 ```bash
 poetry run pytest tests/unit/ -v
 poetry run pytest tests/integration/ -v
 ```
 
 ## 📂 Project Structure (template)
+
 ```
 ${PROJECT_SLUG}/
 ├── .github/
@@ -102,15 +111,19 @@ ${PROJECT_SLUG}/
 ```
 
 ## 👨‍💻 Authors
+
 - ${AUTHOR_NAME} — [GitHub](https://github.com/${GITHUB_USERNAME}) | [LinkedIn](${LINKEDIN_URL})
 
 ## 📜 License
+
 This project is licensed under ${PROJECT_LICENSE}. Update this section if you use a different license.
 
 ## 🙌 Acknowledgments
+
 - Inspired by relevant open-source work.
 - Thank contributors and the community.
 
 ## 🔗 Useful Links
+
 - [GitHub Repository](https://github.com/${GITHUB_USERNAME}/${PROJECT_SLUG})
 - [Issue Tracker](https://github.com/${GITHUB_USERNAME}/${PROJECT_SLUG}/issues)

@@ -78,6 +78,11 @@ cls_cal.delta_working_days(date(2024, 12, 1), date(2024, 12, 31))
 cls_cal.working_days_range(date(2024, 12, 1), date(2024, 12, 31))
 ```
 
+`DatesBRB3` here is just an example — the same methods work on every provider
+(`DatesBRAnbima`, `DatesBRFebraban`, `DatesUSNasdaq`, `DatesUSFederalHolidays`); only the
+loaded holiday set differs. See the [API Reference](api.md) for the full list of classes and
+their shared methods.
+
 ---
 
 ## Listing holidays
