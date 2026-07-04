@@ -14,9 +14,12 @@ stay fast and offline-friendly.
 
 | Section | Description |
 |---------|-------------|
-| [Usage](usage.md) | Installation, providers, and worked examples |
-| [API Reference](api.md) | Public providers and the shared calendar operations |
+| [Usage](usage.md) | Installation, choosing a provider, and basic examples |
+| [Examples](examples.md) | Task-oriented recipes (settlement dates, expiry, cross-market) |
+| [API Reference](api.md) | Public providers and every shared calendar operation |
+| [FAQ](faq.md) | Common questions and troubleshooting |
 | [Contributing](contributing.md) | Dev setup, testing, wheel build, PR workflow, releasing |
+| [Changelog](changelog.md) | Per-version release history |
 
 ---
 

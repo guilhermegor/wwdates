@@ -55,11 +55,11 @@ The authoritative list is fetched live from ANBIMA's workbook.
 
 **Provider-specific methods** (in addition to the [shared surface](#shared-calendar-operations)):
 
-| Method | Signature | Purpose |
-|--------|-----------|---------|
-| `get_holidays_raw` | `(timeout=(12.0, 21.0)) -> DataFrame` | Download + read the raw ANBIMA workbook. |
-| `get_holidays_raw_cached` | `(timeout=(12.0, 21.0)) -> DataFrame` | Cached wrapper over `get_holidays_raw`. |
-| `transform_holidays` | `(df_) -> DataFrame` | Normalise raw rows to typed `(NAME, DATE)`. |
+| Method | Signature | Returns | Description |
+|--------|-----------|---------|-------------|
+| `get_holidays_raw` | `(timeout=(12.0, 21.0))` | `DataFrame` | Download and read the raw ANBIMA workbook. |
+| `get_holidays_raw_cached` | `(timeout=(12.0, 21.0))` | `DataFrame` | Cached wrapper over `get_holidays_raw`. |
+| `transform_holidays` | `(df_)` | `DataFrame` | Normalise the raw rows to typed `(NAME, DATE)`. |
 
 ### `DatesBRFebraban`
 
@@ -82,10 +82,10 @@ banking-sector authority (what settles / clears).
 
 **Provider-specific methods:**
 
-| Method | Signature | Purpose |
-|--------|-----------|---------|
-| `get_holidays_years` | `() -> DataFrame` | Fetch raw FEBRABAN holidays for the configured years. |
-| `transform_holidays` | `(df_) -> DataFrame` | Normalise raw rows to typed `(NAME, DATE)`. |
+| Method | Signature | Returns | Description |
+|--------|-----------|---------|-------------|
+| `get_holidays_years` | `()` | `DataFrame` | Fetch the raw FEBRABAN holidays for the configured years. |
+| `transform_holidays` | `(df_)` | `DataFrame` | Normalise the raw rows to typed `(NAME, DATE)`. |
 
 ### `DatesBRB3`
 
@@ -109,13 +109,13 @@ the Brazilian exchange.
 
 **Provider-specific methods:**
 
-| Method | Signature | Purpose |
-|--------|-----------|---------|
-| `get_anbima_holidays` | `(timeout=(12.0, 21.0)) -> DataFrame` | Fetch the ANBIMA base set. |
-| `add_holidays_b3` | `(df_holidays_anbima) -> DataFrame` | Append B3 exchange non-trading days. |
-| `get_holidays_transformed` | `(timeout=(12.0, 21.0)) -> DataFrame` | Full ANBIMA+B3 typed frame. |
-| `holidays_to_add` | `(df_) -> list[tuple[str, date]]` | The extra `(name, date)` pairs B3 adds. |
-| `get_christmas_eve` | `(int_year) -> date` | 24 December of `int_year` (added when enabled). |
+| Method | Signature | Returns | Description |
+|--------|-----------|---------|-------------|
+| `get_anbima_holidays` | `(timeout=(12.0, 21.0))` | `DataFrame` | Fetch the ANBIMA base holiday set. |
+| `add_holidays_b3` | `(df_holidays_anbima)` | `DataFrame` | Append the B3 exchange non-trading days to the ANBIMA frame. |
+| `get_holidays_transformed` | `(timeout=(12.0, 21.0))` | `DataFrame` | The full ANBIMA + B3 typed holiday frame. |
+| `holidays_to_add` | `(df_)` | `list[tuple[str, date]]` | The extra `(name, date)` pairs B3 adds beyond ANBIMA. |
+| `get_christmas_eve` | `(int_year)` | `date` | 24 December of `int_year` (added when `bool_add_christmas_eve` is set). |
 
 ---
 
@@ -141,10 +141,10 @@ Thanksgiving, Christmas. Use this provider for **US market trading-day** logic.
 
 **Provider-specific methods:**
 
-| Method | Signature | Purpose |
-|--------|-----------|---------|
-| `get_holidays_raw` | `(timeout=(12.0, 21.0)) -> DataFrame` | Fetch the raw Nasdaq closures. |
-| `transform_holidays` | `(df_) -> DataFrame` | Normalise raw rows to typed `(NAME, DATE)`. |
+| Method | Signature | Returns | Description |
+|--------|-----------|---------|-------------|
+| `get_holidays_raw` | `(timeout=(12.0, 21.0))` | `DataFrame` | Fetch the raw Nasdaq market closures. |
+| `transform_holidays` | `(df_)` | `DataFrame` | Normalise the raw rows to typed `(NAME, DATE)`. |
 
 ### `DatesUSFederalHolidays`
 
@@ -168,97 +168,106 @@ chromium` once before first use.
 
 **Provider-specific methods:**
 
-| Method | Signature | Purpose |
-|--------|-----------|---------|
-| `get_holidays_years` | `() -> DataFrame` | Scrape federal holidays for the configured years. |
-| `transform_holidays` | `(df_) -> DataFrame` | Normalise raw rows to typed `(NAME, DATE)`. |
+| Method | Signature | Returns | Description |
+|--------|-----------|---------|-------------|
+| `get_holidays_years` | `()` | `DataFrame` | Scrape the federal holidays for the configured years. |
+| `transform_holidays` | `(df_)` | `DataFrame` | Normalise the raw rows to typed `(NAME, DATE)`. |
 
 ---
 
 ## Shared calendar operations
 
-Every provider inherits the full surface below (from the internal `ABCCalendarOperations`
-facade). `date_` accepts either a `date` or a `datetime`.
+**Every provider inherits all of the methods below** — they are canonical to each calendar
+class. They come from a linear chain of internal capability mixins that build up the
+`ABCCalendarOperations` facade every provider extends:
 
-### Holidays & day predicates
+```
+ABCCalendar → CalendarCore → DateManipulation → DateTimezoneAware
+            → DatesRangeDelta → DatesCurrent → DateFormatter → ABCCalendarOperations
+```
 
-| Method | Signature | Returns / purpose |
-|--------|-----------|-------------------|
-| `holidays` | `()` | `list[tuple[str, date]]` — every `(name, date)` the provider loads. |
-| `holidays_in_year` | `(int_year)` | `list[int]` — ordinal days of the year that are holidays. |
-| `is_holiday` | `(date_)` | `bool` |
-| `is_weekend` | `(date_)` | `bool` |
-| `is_working_day` | `(date_)` | `bool` — not weekend and not holiday. |
-| `add_holidays` | `(list_new_holidays)` | `None` — inject extra `(name, date)` pairs at runtime. |
-| `get_holidays_raw` | `(timeout=(12.0, 21.0))` | `DataFrame` — the raw upstream table. |
+Each layer below lists the methods it contributes. Throughout, `date_` accepts either a
+`date` or a `datetime`.
 
-### Business-day & calendar arithmetic
+### Holidays & working-day predicates — `CalendarCore`
 
-| Method | Signature | Returns / purpose |
-|--------|-----------|-------------------|
-| `add_working_days` | `(date_, int_days_to_add)` | `date` — skips weekends + holidays (negative goes back). |
-| `add_calendar_days` | `(date_, int_days_to_add)` | `date` — plain day arithmetic. |
-| `add_months` | `(date_, int_months_to_add)` | `datetime` |
-| `nearest_working_day` | `(date_, bool_next=True)` | `date` — nearest business day forward (or back). |
-| `get_last_working_day_years` | `(list_years)` | `list[date]` — last business day of each year. |
-| `get_nth_weekday_month` | `(year, month, weekday, n, bool_working_days=True, bool_next_working_day=True)` | `date` — the n-th given weekday of a month. |
-| `get_dates_weekday_month` | `(year, month, weekday)` | `list[date]` — all of one weekday in a month. |
-| `get_start_end_day_month` | `(date_, bool_working_days=False)` | `tuple[date, date]` — first/last day of the month. |
+| Method | Signature | Returns | Description |
+|--------|-----------|---------|-------------|
+| `holidays` | `()` | `list[tuple[str, date]]` | Every holiday the provider loads, as `(name, date)` pairs — the base set all working-day logic builds on. |
+| `holidays_in_year` | `(int_year)` | `list[int]` | Day-of-year ordinals that fall on a holiday in `int_year`; handy for fast membership checks. |
+| `is_holiday` | `(date_)` | `bool` | Whether the date is a loaded holiday. Gate settlement / trading logic on this. |
+| `is_weekend` | `(date_)` | `bool` | Whether the date is a Saturday or Sunday. |
+| `is_working_day` | `(date_)` | `bool` | The core business-day test — `True` when the date is neither weekend nor holiday. |
+| `date_only` | `(date_)` | `date` | Normalise a `datetime` to its `date`, dropping the time; used before day arithmetic. |
+| `get_holidays_raw` | `(timeout=(12.0, 21.0))` | `DataFrame` | The untransformed upstream holiday table — for debugging or custom pipelines. |
 
-### Ranges & deltas
+### Date manipulation — `DateManipulation`
 
-| Method | Signature | Returns / purpose |
-|--------|-----------|-------------------|
-| `working_days_range` | `(date_start, date_end)` | `set[date]` — business days in `[start, end]`. |
-| `calendar_days_range` | `(date_start, date_end)` | `set[date]` — all days in `[start, end]`. |
-| `delta_working_days` | `(date_start, date_end)` | `int` — count of business days between. |
-| `delta_calendar_days` | `(date_start, date_end)` | `int` — count of calendar days between. |
-| `delta_working_hours` | `(timestamp_start, timestamp_end, …office/lunch hours…)` | `int` — business hours between two timestamps. |
-| `years_between_dates` | `(date_start, date_end)` | `set[int]` — the years spanned. |
+| Method | Signature | Returns | Description |
+|--------|-----------|---------|-------------|
+| `add_holidays` | `(list_new_holidays)` | `None` | Inject extra `(name, date)` holidays at runtime — e.g. a one-off company closure on top of the official set. |
+| `add_working_days` | `(date_, int_days_to_add)` | `date` | Advance by N business days, skipping weekends + holidays (negative N goes back). The T+N settlement primitive. |
+| `add_calendar_days` | `(date_, int_days_to_add)` | `date` | Add N calendar days, ignoring weekends/holidays. |
+| `add_months` | `(date_, int_months_to_add)` | `datetime` | Add N calendar months, preserving day-of-month where valid. |
+| `nearest_working_day` | `(date_, bool_next=True)` | `date` | Snap a date to the nearest business day — forward by default, backward with `bool_next=False`. Rolls a due date off a holiday. |
+| `build_date` | `(year, month, day)` | `date` | Construct a `date` from components. |
+| `build_datetime` | `(year, month, day, hour, minute, second, str_timezone="UTC")` | `datetime` | Construct a timezone-aware `datetime` from components. |
+| `str_date_to_date` | `(str_date, format_input="DD/MM/YYYY")` | `date` | Parse a date string using a format token (e.g. `"YYYY-MM-DD"`) into a `date`. |
+| `timestamp_to_date` | `(timestamp_, substr_timestamp="T")` | `date` | Parse a timestamp string into a `date`, splitting on `substr_timestamp`. |
+| `timestamp_to_datetime` | `(timestamp_, substr_timestamp="T")` | `datetime` | Parse a timestamp string into a `datetime`. |
+| `excel_float_to_date` | `(numeric_excel_date)` | `date` | Convert an Excel serial number to a `date` (handles the 1900 leap-year bug). |
+| `to_integer` | `(date_)` | `int` | Encode a date as a `YYYYMMDD` integer — a compact sortable key for storage/comparison. |
 
-### Current date & time
+### Timezone & timestamp conversion — `DateTimezoneAware`
 
-| Method | Signature | Returns / purpose |
-|--------|-----------|-------------------|
-| `curr_date` | `()` | `date` |
-| `curr_datetime` | `(str_timezone="UTC")` | `datetime` |
-| `curr_time` | `(str_timezone="UTC")` | `time` |
-| `current_timestamp_string` | `(format_output="%Y%m%d_%H%M%S", str_timezone="UTC")` | `str` |
-| `utc_log_ts` | `()` | `datetime` — UTC timestamp for logging. |
+| Method | Signature | Returns | Description |
+|--------|-----------|---------|-------------|
+| `change_timezone` | `(date_, target_tz="UTC", source_tz=None)` | `datetime` | Re-express a date/datetime in `target_tz`; pass `source_tz` for naive inputs. |
+| `date_to_datetime` | `(date_, str_timezone="UTC")` | `datetime` | Promote a `date` to a midnight `datetime` in the given timezone. |
+| `str_date_to_datetime` | `(str_date, format_input="DD/MM/YYYY", str_timezone="UTC")` | `datetime` | Parse a date string to a timezone-aware `datetime`. |
+| `to_unix_timestamp` | `(date_, str_timezone="UTC")` | `int` | Convert a date / datetime / time to Unix epoch seconds. |
+| `iso_to_unix_timestamp` | `(iso_timestamp, str_timezone="UTC")` | `int` | Convert an ISO-8601 string to Unix epoch seconds. |
+| `unix_timestamp_to_date` | `(unix_timestamp, str_timezone="UTC")` | `date` | Convert Unix epoch seconds back to a `date` in the given timezone. |
+| `unix_timestamp_to_datetime` | `(unix_timestamp, str_timezone="UTC")` | `datetime` | Convert Unix epoch seconds back to a `datetime`. |
+| `excel_float_to_datetime` | `(float_date, str_timezone="UTC")` | `datetime` | Convert an Excel serial number to a timezone-aware `datetime`, including the fractional-day time. |
 
-### Construction & conversion
+### Ranges & deltas — `DatesRangeDelta`
 
-| Method | Signature | Returns / purpose |
-|--------|-----------|-------------------|
-| `build_date` | `(year, month, day)` | `date` |
-| `build_datetime` | `(year, month, day, hour, minute, second, str_timezone="UTC")` | `datetime` |
-| `date_only` | `(date_)` | `date` — drop the time component. |
-| `date_to_datetime` | `(date_, str_timezone="UTC")` | `datetime` |
-| `str_date_to_date` | `(str_date, format_input="DD/MM/YYYY")` | `date` |
-| `str_date_to_datetime` | `(str_date, format_input="DD/MM/YYYY", str_timezone="UTC")` | `datetime` |
-| `timestamp_to_date` | `(timestamp_, substr_timestamp="T")` | `date` |
-| `timestamp_to_datetime` | `(timestamp_, substr_timestamp="T")` | `datetime` |
-| `to_unix_timestamp` | `(date_, str_timezone="UTC")` | `int` |
-| `iso_to_unix_timestamp` | `(iso_timestamp, str_timezone="UTC")` | `int` |
-| `unix_timestamp_to_date` | `(unix_timestamp, str_timezone="UTC")` | `date` |
-| `unix_timestamp_to_datetime` | `(unix_timestamp, str_timezone="UTC")` | `datetime` |
-| `excel_float_to_date` | `(numeric_excel_date)` | `date` — Excel serial → date. |
-| `excel_float_to_datetime` | `(float_date, str_timezone="UTC")` | `datetime` |
-| `to_integer` | `(date_)` | `int` — `YYYYMMDD` form. |
-| `change_timezone` | `(date_, target_tz="UTC", source_tz=None)` | `datetime` |
+| Method | Signature | Returns | Description |
+|--------|-----------|---------|-------------|
+| `working_days_range` | `(date_start, date_end)` | `set[date]` | All business days within `[start, end]` inclusive. |
+| `calendar_days_range` | `(date_start, date_end)` | `set[date]` | All calendar days within `[start, end]` inclusive. |
+| `delta_working_days` | `(date_start, date_end)` | `int` | Count of business days between two dates — e.g. SLA / aging in business days. |
+| `delta_calendar_days` | `(date_start, date_end)` | `int` | Count of calendar days between two dates. |
+| `delta_working_hours` | `(timestamp_start, timestamp_end, …office/lunch hours…)` | `int` | Business hours between two timestamps, honouring configurable office + lunch windows and holidays. |
+| `get_dates_weekday_month` | `(year, month, weekday)` | `list[date]` | Every occurrence of a given weekday in a month (e.g. all Mondays). |
+| `get_last_working_day_years` | `(list_years)` | `list[date]` | The last business day of each requested year — for year-end processing. |
+| `get_nth_weekday_month` | `(year, month, weekday, n, bool_working_days=True, bool_next_working_day=True)` | `date` | The n-th given weekday of a month (e.g. 3rd Wednesday — options expiry), optionally rolled to a working day. |
+| `get_start_end_day_month` | `(date_, bool_working_days=False)` | `tuple[date, date]` | The first and last day of a date's month, optionally as working days. |
+| `years_between_dates` | `(date_start, date_end)` | `set[int]` | The set of calendar years a range spans. |
 
-### Components & naming
+### Current date & time — `DatesCurrent`
 
-| Method | Signature | Returns / purpose |
-|--------|-----------|-------------------|
-| `day_number` | `(date_)` | `int` — day of month. |
-| `week_number` | `(date_)` | `str` — ISO week. |
-| `month_number` | `(date_, bool_month_mm=False)` | `int \| str` |
-| `month_name` | `(date_, bool_abbreviation=False, str_timezone="UTC")` | `str` — locale-aware. |
-| `month_str` | `(date_)` | `str` |
-| `year_number` | `(date_)` | `int` |
-| `weekday_name` | `(date_, bool_abbreviation=False, str_timezone="UTC")` | `str` — locale-aware. |
-| `get_platform_locale` | `(str_locale=None, str_timezone=None)` | `str` |
+| Method | Signature | Returns | Description |
+|--------|-----------|---------|-------------|
+| `curr_date` | `()` | `date` | Today's date. |
+| `curr_datetime` | `(str_timezone="UTC")` | `datetime` | The current datetime in the given timezone. |
+| `curr_time` | `(str_timezone="UTC")` | `time` | The current time-of-day in the given timezone. |
+| `current_timestamp_string` | `(format_output="%Y%m%d_%H%M%S", str_timezone="UTC")` | `str` | The current timestamp formatted as a string — handy for filenames / log keys. |
+
+### Formatting & components — `DateFormatter`
+
+| Method | Signature | Returns | Description |
+|--------|-----------|---------|-------------|
+| `day_number` | `(date_)` | `int` | Day of month (1–31). |
+| `week_number` | `(date_)` | `str` | ISO week number. |
+| `month_number` | `(date_, bool_month_mm=False)` | `int \| str` | Month as an `int`, or a zero-padded `"MM"` string when `bool_month_mm=True`. |
+| `month_name` | `(date_, bool_abbreviation=False, str_timezone="UTC")` | `str` | Locale-aware month name (full, or abbreviated when `bool_abbreviation=True`). |
+| `month_str` | `(date_)` | `str` | Month rendered as a string. |
+| `year_number` | `(date_)` | `int` | Four-digit year. |
+| `weekday_name` | `(date_, bool_abbreviation=False, str_timezone="UTC")` | `str` | Locale-aware weekday name (full, or abbreviated when `bool_abbreviation=True`). |
+| `get_platform_locale` | `(str_locale=None, str_timezone=None)` | `str` | Resolve a platform-appropriate locale string backing the name methods above. |
+| `utc_log_ts` | `()` | `datetime` | A UTC datetime intended for log timestamps. |
 
 ---
 
