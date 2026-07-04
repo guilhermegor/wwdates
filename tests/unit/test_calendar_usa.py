@@ -141,6 +141,40 @@ def test_nasdaq_holidays(mocker: MockerFixture, sample_nasdaq_df: pd.DataFrame) 
 	assert result[1] == ("Independence Day", date(2025, 7, 4))
 
 
+def test_nasdaq_add_holidays_merges_into_provider(
+	mocker: MockerFixture, sample_nasdaq_df: pd.DataFrame
+) -> None:
+	"""Test add_holidays injects a holiday into a concrete provider.
+
+	Regression guard for a bug that surfaced only on concrete providers (not the abc
+	facade): providers do not chain ``super().__init__()`` and supply their own source
+	calendar via ``_source_holidays``. The injected holiday must (1) not raise
+	``AttributeError`` on an uninitialised store, (2) appear in ``holidays()``, and
+	(3) be honoured by the working-day calculation.
+
+	Parameters
+	----------
+	mocker : MockerFixture
+		Pytest-mock fixture for mocking dependencies
+	sample_nasdaq_df : pd.DataFrame
+		Sample Nasdaq holiday data
+
+	Returns
+	-------
+	None
+	"""
+	mocker.patch.object(DatesUSNasdaq, "get_holidays_raw", return_value=sample_nasdaq_df)
+	mocker.patch.object(DatesUSNasdaq, "transform_holidays", return_value=sample_nasdaq_df)
+	instance = DatesUSNasdaq(bool_reuse_cache=False)
+	tup_extra = ("Company offsite", date(2025, 6, 2))  # a Monday
+
+	instance.add_holidays([tup_extra])
+
+	assert tup_extra in instance.holidays()
+	assert instance.is_holiday(date(2025, 6, 2))
+	assert not instance.is_working_day(date(2025, 6, 2))
+
+
 def test_nasdaq_get_holidays_raw_success(mocker: MockerFixture) -> None:
 	"""Test successful fetching of raw Nasdaq holiday data.
 

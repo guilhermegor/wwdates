@@ -55,7 +55,7 @@ class DatesUSFederalHolidays(ABCCalendarOperations):
 		self.int_year_end = int_year_end
 		self._logger = logger
 
-	def holidays(self) -> list[tuple[str, date]]:
+	def _source_holidays(self) -> list[tuple[str, date]]:
 		"""Return US federal holidays for the configured year range.
 
 		Both the statutory date and the observed closure day (when a holiday falls on a

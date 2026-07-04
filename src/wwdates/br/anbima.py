@@ -66,7 +66,7 @@ class DatesBRAnbima(ABCCalendarOperations):
 		)
 		self.cls_str_handler = StrHandler()
 
-	def holidays(self) -> list[tuple[str, date]]:
+	def _source_holidays(self) -> list[tuple[str, date]]:
 		"""Get list of Brazilian holidays from ANBIMA.
 
 		Returns

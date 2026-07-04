@@ -62,7 +62,7 @@ class DatesUSNasdaq(ABCCalendarOperations):
 		self.cls_html_handler = HtmlHandler()
 		self.cls_dict_handler = HandlingDicts()
 
-	def holidays(self) -> list[tuple[str, date]]:
+	def _source_holidays(self) -> list[tuple[str, date]]:
 		"""Get list of NASDAQ holidays with descriptions and dates.
 
 		Returns

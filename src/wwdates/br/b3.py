@@ -67,7 +67,7 @@ class DatesBRB3(ABCCalendarOperations):
 		)
 		self.cls_str_handler = StrHandler()
 
-	def holidays(self) -> list[tuple[str, date]]:
+	def _source_holidays(self) -> list[tuple[str, date]]:
 		"""Return a list of tuples containing holiday names and dates.
 
 		Returns

@@ -30,8 +30,13 @@ class CalendarCore(ABCCalendar):
 		"""
 		return pd.DataFrame(columns=["name", "date"])
 
-	def holidays(self) -> list[tuple[str, date]]:
-		"""Return an empty list of holidays as a default implementation.
+	def _source_holidays(self) -> list[tuple[str, date]]:
+		"""Return the provider's source holidays (name, date) before runtime additions.
+
+		This is the extension point each concrete provider overrides. The public
+		``holidays()`` (defined in ``DateManipulation``) wraps it and appends any
+		holidays injected at runtime via ``add_holidays`` — so providers never touch the
+		runtime-addition bookkeeping. Defaults to an empty list.
 
 		Returns
 		-------

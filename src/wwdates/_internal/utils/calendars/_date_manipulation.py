@@ -14,26 +14,35 @@ from wwdates._internal.utils.calendars._calendar_core import CalendarCore
 class DateManipulation(CalendarCore):
 	"""Abstract class for date manipulation operations."""
 
-	def __init__(self) -> None:
-		"""Initialize the DateManipulation class.
+	def _get_added_holidays(self) -> list[tuple[str, date]]:
+		"""Return the runtime-added holidays, initialising the store on first access.
+
+		Lazily initialised rather than set in ``__init__`` so it works even for concrete
+		providers that do not chain ``super().__init__()`` — accessing the store never
+		raises ``AttributeError``.
 
 		Returns
 		-------
-		None
+		list[tuple[str, date]]
+			The list of ``(name, date)`` holidays injected via ``add_holidays``.
 		"""
-		super().__init__()
-		self._added_holidays: list[tuple[str, date]] = []
+		if not hasattr(self, "_added_holidays"):
+			self._added_holidays: list[tuple[str, date]] = []
+		return self._added_holidays
 
 	def holidays(self) -> list[tuple[str, date]]:
-		"""Return a list of tuples containing holiday names and dates.
+		"""Return the provider's holidays plus any injected at runtime.
+
+		Concrete providers supply their source calendar via ``_source_holidays``; this
+		single, non-overridden method appends the runtime additions, so ``add_holidays``
+		works uniformly across every provider.
 
 		Returns
 		-------
 		list[tuple[str, date]]
 			List of tuples containing holiday names and dates
 		"""
-		base_holidays = super().holidays()
-		return base_holidays + self._added_holidays
+		return self._source_holidays() + self._get_added_holidays()
 
 	def add_holidays(self, list_new_holidays: list[tuple[str, date]]) -> None:
 		"""Add new holidays to the existing holiday cache.
@@ -65,16 +74,14 @@ class DateManipulation(CalendarCore):
 			if not isinstance(date_, date) or isinstance(date_, datetime):
 				raise TypeError(f"Holiday date must be a date object, got {type(date_).__name__}")
 
-		self._added_holidays.extend(list_new_holidays)
+		self._get_added_holidays().extend(list_new_holidays)
 
-		if hasattr(self, "_holidays_cache"):
-			delattr(self, "_holidays_cache")
-
-		list_current_holidays = (
-			self.holidays() if self.holidays() is not NotImplementedError else []
-		)
-		updated_holidays = list_current_holidays + list_new_holidays
-		self._holidays_cache = {tup_holiday[1] for tup_holiday in updated_holidays}
+		# Rebuild the date-set cache eagerly, unioning the current holidays with the new
+		# ones. The current holiday accessor may be patched or overridden to exclude the
+		# additions, so the new dates are unioned in explicitly rather than assumed present.
+		set_current = {tup_holiday[1] for tup_holiday in self.holidays()}
+		set_new = {tup_holiday[1] for tup_holiday in list_new_holidays}
+		self._holidays_cache = set_current | set_new
 
 	def add_working_days(self, date_: TypeDatetimeDate, int_days_to_add: int) -> date:
 		"""Add the specified number of working days to the given date.
