@@ -48,9 +48,13 @@ of your public `__all__`. The internal imports are package-qualified
   tests, coverage badge.
 - **Tests**: `pytest` — `make unit_tests` (`poetry run pytest tests/unit/`). Write
   pytest-style functions with fixtures, not `unittest.TestCase`.
-- **Explicit column typing & Brazilian identifiers** — if the library touches pandas, type
-  every DataFrame on load via `apply_dtypes` (`_internal.utils.dtypes`, never pandas'
-  inference), route reads through `_internal.utils.tabular_reader`, and use
+- **Tabular reads go through `tabular_reader` + a contract — never raw `pd.read_*`.** Any
+  time the library ingests a table (Excel/CSV/JSON/SQL), call
+  `_internal.utils.tabular_reader.read_table` / `read_query` — **never** `pd.read_excel`,
+  `pd.read_csv`, `pd.read_json`, etc. directly. Each source **must** declare a `FileContract`
+  in `_internal/config/contracts/` (one file per source, re-exported via that package's
+  `__init__`), so the read is schema-validated at ingestion. Every DataFrame is typed on load
+  via `apply_dtypes` (`_internal.utils.dtypes`, never pandas' inference). Use
   `_internal.utils.br_identifiers` for CNPJ/CPF (alphanumeric-aware for the 2026 CNPJ).
 - **No `.env`** — a distributable library has no runtime env to seed (unlike the service
   tiers), so none is shipped.

@@ -1,10 +1,11 @@
-site_name: Wwdates
-site_description: Documentation for Wwdates
+site_name: wwdates
+site_description: Worldwide holiday calendars and business-day date operations for Python
 repo_url: https://github.com/guilhermegor/wwdates
 nav:
   - Home: index.md
   - Usage: usage.md
   - API Reference: api.md
+  - Contributing: contributing.md
 theme:
   name: material
   # overrides/main.html exposes the code version (from mkdocs_hooks.py) as a meta tag.
@@ -38,12 +39,21 @@ hooks:
   - mkdocs_hooks.py
 extra_javascript:
   - javascripts/header-version.js
+extra_css:
+  - stylesheets/version-badge.css
 
 # Non-published docs: MkDocs builds every .md under docs/, so working
 # documents must be excluded here or they ship to readers.
 exclude_docs: |
-  backlog/                # work-to-do backlogs / follow-up notes
-  superpowers/            # design specs / working notes, not published
-  CLAUDE.md               # docs/ authoring guidance, not a published page
-  checkpoints.md          # offline merge-checkpoint log, internal
-  blueprintx-lessons.md   # git-ignored scaffolding-lessons record, never published
+  # NOTE: .gitignore syntax — comments must be on their own line. A trailing
+  # "# ..." after a pattern becomes part of the pattern and silently disables it.
+  # work-to-do backlogs / follow-up notes
+  backlog/
+  # design specs / working notes, not published
+  superpowers/
+  # docs/ authoring guidance, not a published page
+  CLAUDE.md
+  # offline merge-checkpoint log, internal
+  checkpoints.md
+  # git-ignored scaffolding-lessons record, never published
+  blueprintx-lessons.md

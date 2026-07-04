@@ -1,73 +1,92 @@
 # **Usage**
 
-Examples for installing and using this library.
+Installing and using `wwdates`.
 
-> **See also:** [API Reference](api.md)
+> **See also:** [API Reference](api.md) for the full method list · [Contributing](contributing.md)
+> to develop or release the library.
 
 ---
 
 ## Installation
 
 ```bash
-pip install <package-name>
+pip install wwdates
 ```
 
 Or with Poetry:
 
 ```bash
-poetry add <package-name>
+poetry add wwdates
+```
+
+The `DatesUSFederalHolidays` provider drives a headless browser via Playwright. Install its
+browser binary once after installing the package:
+
+```bash
+playwright install chromium
 ```
 
 ---
 
-## Basic usage
+## Choosing a provider
+
+Every provider exposes the same calendar-operations surface (see [API Reference](api.md)); they
+differ only in **which** holidays they load.
 
 ```python
-from <package_name>.main import main
+from wwdates.br.anbima import DatesBRAnbima      # ANBIMA national holidays
+from wwdates.br.febraban import DatesBRFebraban  # FEBRABAN bank holidays
+from wwdates.br.b3 import DatesBRB3              # ANBIMA + B3 exchange extras
+from wwdates.us.nasdaq import DatesUSNasdaq      # Nasdaq trading calendar
+from wwdates.us.federal_holidays import DatesUSFederalHolidays
+```
 
-main()
+You can also import from the country package:
+
+```python
+from wwdates.br import DatesBRAnbima, DatesBRB3, DatesBRFebraban
+from wwdates.us import DatesUSNasdaq, DatesUSFederalHolidays
+```
+
+Fetched calendars are cached locally so repeated calls stay fast and offline-friendly; the
+cache controls are documented in the [API Reference](api.md#constructor-parameters) and their
+internals in [Contributing](contributing.md#caching-internals).
+
+---
+
+## Working with business days
+
+```python
+from datetime import date
+
+from wwdates.br.b3 import DatesBRB3
+
+cls_cal = DatesBRB3()
+
+cls_cal.is_working_day(date(2024, 12, 25))   # False — Christmas
+cls_cal.is_holiday(date(2024, 12, 25))       # True
+cls_cal.is_weekend(date(2024, 12, 28))       # True — Saturday
+
+# Add three business days, skipping weekends and holidays.
+cls_cal.add_working_days(date(2024, 12, 24), 3)     # -> date(2024, 12, 30)
+
+# Nearest business day on or after (or before) a given date.
+cls_cal.nearest_working_day(date(2024, 12, 25), bool_next=True)
+
+# Count / list business days in a range.
+cls_cal.delta_working_days(date(2024, 12, 1), date(2024, 12, 31))
+cls_cal.working_days_range(date(2024, 12, 1), date(2024, 12, 31))
 ```
 
 ---
 
-## Running from the Makefile
+## Listing holidays
 
-```bash
-make start         # runs src/<package_name>/main.py via Poetry
+Every provider returns `(name, date)` tuples:
+
+```python
+from wwdates.us.nasdaq import DatesUSNasdaq
+
+for name, day in DatesUSNasdaq().holidays():
+    print(day, name)
 ```
-
----
-
-## Running tests
-
-```bash
-make unit_tests         # unit tests only
-make integration_tests  # integration tests only
-make test_cov           # unit tests + coverage report + badge
-```
-
----
-
-## Linting and formatting
-
-```bash
-make lint          # ruff check + ruff format + codespell + pydocstyle
-```
-
----
-
-## Publishing to PyPI
-
-Two GitHub Actions workflows handle releases (present when the repo has a GitHub remote):
-
-- **`release_test_pypi.yaml`** — publish to [Test PyPI](https://test.pypi.org) first.
-- **`release_pypi.yaml`** — publish to [PyPI](https://pypi.org) and cut a GitHub release.
-
-Trigger either from the **Actions** tab (`workflow_dispatch`) with the version to release.
-Both gate on the new version being greater than the latest already published, build with
-Poetry, and fall back to `twine` if `poetry publish` is unavailable.
-
-Configure once, in repository settings:
-
-- Secrets `PYPI_TOKEN` and `TEST_PYPI_TOKEN` (API tokens from each index).
-- A GitHub **Environment** named `release`.

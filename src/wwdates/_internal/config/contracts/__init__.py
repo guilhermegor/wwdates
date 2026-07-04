@@ -16,6 +16,7 @@ delete the example once your own contracts exist.
 
 from __future__ import annotations
 
+from wwdates._internal.config.contracts.anbima_holidays import ANBIMA_HOLIDAYS
 from wwdates._internal.config.contracts.example_source import EXAMPLE_SOURCE
 from wwdates._internal.utils.tabular_reader import (
 	ContractError,
@@ -24,4 +25,10 @@ from wwdates._internal.utils.tabular_reader import (
 )
 
 
-__all__ = ["EXAMPLE_SOURCE", "ContractError", "FileContract", "find_file_problems"]
+__all__ = [
+	"ANBIMA_HOLIDAYS",
+	"EXAMPLE_SOURCE",
+	"ContractError",
+	"FileContract",
+	"find_file_problems",
+]

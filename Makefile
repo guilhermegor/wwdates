@@ -127,11 +127,6 @@ db_restore:
 # -------------------
 # RUN
 # -------------------
-.PHONY: run
-
-run:
-	@bash bin/run.sh
-
 # -------------------
 # CONTEXT
 # -------------------
@@ -147,6 +142,20 @@ export_context:
 
 ship:
 	@bash bin/ship.sh
+
+# -------------------
+# BUILD
+# -------------------
+.PHONY: install_dist_locally
+
+# Build the wheel/sdist, install it, and smoke-import the package — catches packaging
+# mistakes (missing __init__, unshipped _internal subpackages) that source-tree tests miss.
+install_dist_locally:
+	@rm -rf dist/* build/ *.egg-info/
+	@$(POETRY) build
+	@$(POETRY) install
+	@$(POETRY) run python -c "from wwdates.br.b3 import DatesBRB3; print('Package import works')"
+	@$(POETRY) run python -c "import wwdates; print(wwdates.__version__)"
 
 # -------------------
 # DOCS
@@ -199,8 +208,8 @@ help:
 	@echo "Docs"
 	@echo "  docs_server          Serve MkDocs site locally at http://0.0.0.0:8000"
 	@echo ""
-	@echo "Run"
-	@echo "  run                  Run src/main.py (auto-installs Poetry if missing)"
+	@echo "Build"
+	@echo "  install_dist_locally Build the wheel, install it, and smoke-import the package"
 	@echo ""
 	@echo "Context / Ship"
 	@echo "  export_context       Flatten the repo into repo_context.txt for pasting into a web-UI LLM"

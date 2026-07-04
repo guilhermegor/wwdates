@@ -159,8 +159,16 @@ db_restore() {
 # RUN
 # -------------------
 
-run() {
-	bash "$SCRIPT_DIR/bin/run.sh"
+# -------------------
+# BUILD
+# -------------------
+
+install_dist_locally() {
+	rm -rf dist/* build/ ./*.egg-info/
+	poetry_exec build
+	poetry_exec install
+	poetry_exec run python -c "from wwdates.br.b3 import DatesBRB3; print('Package import works')"
+	poetry_exec run python -c "import wwdates; print(wwdates.__version__)"
 }
 
 # -------------------
@@ -252,9 +260,9 @@ Database
 
 Docs
   docs_server          Serve MkDocs site locally at http://0.0.0.0:8000
+  install_dist_locally Build the wheel, install it, and smoke-import the package
 
 Run
-  run                  Run src/main.py (auto-installs Poetry if missing)
 
 Context / Ship
   export_context       Flatten the repo into repo_context.txt for pasting into a web-UI LLM
@@ -298,7 +306,7 @@ db_up) db_up ;;
 db_backup) db_backup ;;
 db_restore) db_restore ;;
 docs_server) docs_server ;;
-run) run ;;
+install_dist_locally) install_dist_locally ;;
 export_context) export_context "${2:-}" ;;
 ship) ship ;;
 new_branch) new_branch "${2:-}" ;;

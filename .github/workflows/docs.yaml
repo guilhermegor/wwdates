@@ -1,0 +1,57 @@
+name: Docs - GitHub Pages Deployment
+
+# Build the MkDocs site with Poetry (the project toolchain) and deploy it to the
+# gh-pages branch on every push to the default branch. Adapted from the BlueprintX
+# reference docs workflow; the canonical `mkdocs gh-deploy --force` replaces the
+# rsync-into-gh-pages dance since this project hosts nothing else on gh-pages.
+on:
+  push:
+    branches:
+      - main
+      - master
+
+permissions:
+  contents: write
+
+jobs:
+  deploy_docs:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Configure Git Credentials
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+      - name: Set Up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.x"
+
+      - name: Cache mkdocs-material build
+        run: echo "cache_id=$(date --utc '+%V')" >> "$GITHUB_ENV"
+      - uses: actions/cache@v4
+        with:
+          key: mkdocs-material-${{ env.cache_id }}
+          path: .cache
+          restore-keys: |
+            mkdocs-material-
+
+      - name: Install Poetry
+        uses: snok/install-poetry@v1
+        with:
+          virtualenvs-in-project: true
+          virtualenvs-create: true
+
+      - name: Install Docs Dependencies
+        run: poetry install --with docs
+
+      - name: Build Site (strict)
+        run: poetry run mkdocs build --strict
+
+      - name: Deploy to gh-pages
+        run: poetry run mkdocs gh-deploy --force --no-history

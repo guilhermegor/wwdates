@@ -1,6 +1,6 @@
-"""Logging module — in-repo logging seam (vendored from stpstone).
+"""Logging module — the package's in-repo logging seam.
 
-One home for the project's logging, replacing a dependency on the umbrella ``stpstone`` package:
+One home for the project's logging, so callers depend on no external logging backend:
 
 - :class:`CreateLog` — configures a file logger (:meth:`CreateLog.basic_conf`) and emits messages
   with caller context (:meth:`CreateLog.log_message`); the message is prefixed with

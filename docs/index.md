@@ -1,6 +1,12 @@
-# **Wwdates**
+# **wwdates**
 
-A minimal Python library with packaging, tests, CI, and linting pre-configured.
+Worldwide holiday calendars and business-day date operations for Python.
+
+`wwdates` fetches official holiday calendars for Brazil (ANBIMA, FEBRABAN, B3) and the United
+States (Nasdaq, Federal Holidays), then layers a rich set of working-day / date helpers on top
+— `is_working_day`, `add_working_days`, `working_days_range`, `delta_working_days`,
+timezone-aware conversions, and more. Fetched calendars are cached locally so repeated calls
+stay fast and offline-friendly.
 
 ---
 
@@ -8,18 +14,46 @@ A minimal Python library with packaging, tests, CI, and linting pre-configured.
 
 | Section | Description |
 |---------|-------------|
-| [Usage](usage.md) | Installation, imports, and usage examples |
-| [API Reference](api.md) | Module-level functions and public interface |
+| [Usage](usage.md) | Installation, providers, and worked examples |
+| [API Reference](api.md) | Public providers and the shared calendar operations |
+| [Contributing](contributing.md) | Dev setup, testing, wheel build, PR workflow, releasing |
 
 ---
 
 ## Quick start
 
 ```bash
-make init          # bootstrap virtual environment and install pre-commit hooks
-make unit_tests    # run the test suite
-make docs_server   # serve this documentation at http://0.0.0.0:8000
+pip install wwdates
 ```
+
+```python
+from datetime import date
+
+from wwdates.br.b3 import DatesBRB3
+
+cls_cal = DatesBRB3()
+cls_cal.is_working_day(date(2024, 12, 25))          # False — Christmas
+cls_cal.add_working_days(date(2024, 12, 24), 3)     # skips holidays + weekends
+cls_cal.holidays()                                  # [(name, date), ...]
+```
+
+The US Federal Holidays provider scrapes with Playwright, so install its browser once:
+
+```bash
+playwright install chromium
+```
+
+---
+
+## Providers at a glance
+
+| Country | Import | Source |
+|---------|--------|--------|
+| 🇧🇷 Brazil | `from wwdates.br.anbima import DatesBRAnbima` | ANBIMA national holidays |
+| 🇧🇷 Brazil | `from wwdates.br.febraban import DatesBRFebraban` | FEBRABAN bank holidays |
+| 🇧🇷 Brazil | `from wwdates.br.b3 import DatesBRB3` | ANBIMA + B3 exchange extras |
+| 🇺🇸 USA | `from wwdates.us.nasdaq import DatesUSNasdaq` | Nasdaq trading calendar |
+| 🇺🇸 USA | `from wwdates.us.federal_holidays import DatesUSFederalHolidays` | US federal holidays |
 
 ---
 

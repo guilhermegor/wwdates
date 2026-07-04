@@ -1,0 +1,209 @@
+"""Nasdaq US holiday calendar."""
+
+from datetime import date
+from logging import Logger
+
+import pandas as pd
+import requests
+from requests.exceptions import RequestException
+
+from wwdates._internal.utils.cache.cache_manager import CacheManager
+from wwdates._internal.utils.calendars.abc_calendar_operations import ABCCalendarOperations
+from wwdates._internal.utils.parsers.dicts import HandlingDicts
+from wwdates._internal.utils.parsers.html import HtmlHandler
+
+
+class DatesUSNasdaq(ABCCalendarOperations):
+	"""NASDAQ holiday calendar data fetcher and processor.
+
+	References
+	----------
+	[1] https://nasdaqtrader.com/trader.aspx?id=Calendar
+	"""
+
+	def __init__(
+		self,
+		bool_persist_cache: bool = True,
+		bool_reuse_cache: bool = True,
+		int_days_cache_expiration: int = 1,
+		int_cache_ttl_days: int = 30,
+		path_cache_dir: str | None = None,
+		logger: Logger | None = None,
+	) -> None:
+		"""Initialize Nasdaq calendar handler with HTML and dict utilities.
+
+		Parameters
+		----------
+		bool_persist_cache : bool
+			If True, saves cache to disk; if False, uses in-memory cache only (default: True)
+		bool_reuse_cache : bool
+			If True, caches in-memory; if False, does not cache in-memory (default: True)
+		int_days_cache_expiration : int
+			Number of days after which the cache expires (default: 1)
+		int_cache_ttl_days : int
+			Number of days after which the cache is considered expired (default: 30)
+		path_cache_dir : Optional[str]
+			Path to the cache directory (default: None)
+		logger : Optional[Logger]
+			Logger object for logging (default: None)
+
+		Returns
+		-------
+		None
+		"""
+		self.cls_cache_manager = CacheManager(
+			bool_persist_cache=bool_persist_cache,
+			bool_reuse_cache=bool_reuse_cache,
+			int_days_cache_expiration=int_days_cache_expiration,
+			int_cache_ttl_days=int_cache_ttl_days,
+			path_cache_dir=path_cache_dir,
+			logger=logger,
+		)
+		self.cls_html_handler = HtmlHandler()
+		self.cls_dict_handler = HandlingDicts()
+
+	def holidays(self) -> list[tuple[str, date]]:
+		"""Get list of NASDAQ holidays with descriptions and dates.
+
+		Returns
+		-------
+		list[tuple[str, date]]
+			list of tuples containing holiday description and date
+		"""
+		df_ = self.get_holidays_raw()
+		df_ = self.transform_holidays(df_)
+		return [(row["DESCRIPTION"], row["DATE_WINS"]) for _, row in df_.iterrows()]
+
+	@CacheManager.cache_df(key="usa_nasdaq_holidays")
+	def get_holidays_raw(self, timeout: int | None = 10) -> pd.DataFrame:
+		"""Fetch raw NASDAQ holiday calendar data from website.
+
+		Parameters
+		----------
+		timeout : Optional[int]
+			Request timeout in seconds (default: 10)
+
+		Returns
+		-------
+		pd.DataFrame
+			Raw holiday data with DATE, DESCRIPTION, STATUS columns
+
+		Raises
+		------
+		RequestException
+			If HTTP request fails or returns non-200 status
+		ValueError
+			If HTML parsing fails or data structure is invalid
+		"""
+		url = "https://nasdaqtrader.com/trader.aspx?id=Calendar"
+		try:
+			resp_req = requests.get(url, timeout=timeout)
+			resp_req.raise_for_status()
+			root_html = self.cls_html_handler.lxml_parser(resp_req)
+			list_td = [
+				x.text for x in self.cls_html_handler.lxml_xpath(root_html, "//table/tbody/tr/td")
+			]
+			list_ser = self.cls_dict_handler.pair_headers_with_data(
+				["DATE", "DESCRIPTION", "STATUS"], list_td
+			)
+			return pd.DataFrame(list_ser)
+		except RequestException as err:
+			raise RequestException(f"Failed to fetch NASDAQ holidays: {str(err)}") from err
+		except Exception as err:
+			raise ValueError(f"Failed to parse NASDAQ holidays data: {str(err)}") from err
+
+	def transform_holidays(self, df_: pd.DataFrame) -> pd.DataFrame:
+		"""Transform raw holiday data into structured format.
+
+		Parameters
+		----------
+		df_ : pd.DataFrame
+			Raw holiday data from get_holidays_raw
+
+		Returns
+		-------
+		pd.DataFrame
+			Transformed data with DATE_WINS as date objects
+		"""
+		self._validate_holidays_dataframe(df_)
+		df_ = df_.astype({"DATE": str, "DESCRIPTION": str, "STATUS": str})
+		df_["DATE_WINS"] = [self._parse_dates(x) for x in df_["DATE"].tolist()]
+		return df_
+
+	def _parse_dates(self, str_dt: str) -> date:
+		"""Parse date string into date object.
+
+		Parameters
+		----------
+		str_dt : str
+			Date string in format "Month Day, Year"
+
+		Returns
+		-------
+		date
+			Parsed date object
+
+		Raises
+		------
+		ValueError
+			If date string format is invalid or month is unrecognized
+		"""
+		self._validate_date_string(str_dt)
+		dict_mappings = {
+			"January": 1,
+			"February": 2,
+			"March": 3,
+			"April": 4,
+			"May": 5,
+			"June": 6,
+			"July": 7,
+			"August": 8,
+			"September": 9,
+			"October": 10,
+			"November": 11,
+			"December": 12,
+		}
+		list_parts_dt = [x.replace(",", "") for x in str_dt.split(" ") if x]
+		if list_parts_dt[0] not in dict_mappings:
+			raise ValueError(f"Invalid date format: {str_dt}. Expected 'Month Day, Year'")
+		month = dict_mappings[list_parts_dt[0]]
+		day = int(list_parts_dt[1])
+		year = int(list_parts_dt[2])
+		return date(year, month, day)
+
+	def _validate_holidays_dataframe(self, df_: pd.DataFrame) -> None:
+		"""Validate holidays DataFrame structure and content.
+
+		Parameters
+		----------
+		df_ : pd.DataFrame
+			DataFrame to validate
+
+		Raises
+		------
+		ValueError
+			If DataFrame is empty or missing required columns
+		"""
+		if df_.empty:
+			raise ValueError("Holidays DataFrame cannot be empty")
+		required_columns = {"DATE", "DESCRIPTION", "STATUS"}
+		if not required_columns.issubset(df_.columns):
+			raise ValueError(f"DataFrame must contain columns: {required_columns}")
+
+	def _validate_date_string(self, str_dt: str) -> None:
+		"""Validate date string format.
+
+		Parameters
+		----------
+		str_dt : str
+			Date string to validate
+
+		Raises
+		------
+		ValueError
+			If date string is empty, not a string, or has invalid format
+		"""
+		if not str_dt:
+			raise ValueError("Date string cannot be empty")
+		if len(str_dt.split(" ")) < 3:
+			raise ValueError("Date string must contain month, day, and year components")
