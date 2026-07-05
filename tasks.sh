@@ -56,9 +56,9 @@ bump_version() {
 }
 
 changelog() {
-	# Regenerate CHANGELOG.md locally from the conventional-commit history (preview). The
-	# authoritative changelog is produced automatically on merge to main by
-	# .github/workflows/changelog.yaml — you normally do not need to run this by hand.
+	# Regenerate CHANGELOG.md from the conventional-commit history. Run this at release time on the
+	# release branch (after bump_version); the update reaches main through the normal PR — CI never
+	# pushes the changelog to protected main.
 	poetry_exec run cz changelog
 	echo "CHANGELOG.md regenerated"
 }
@@ -241,7 +241,7 @@ Virtual Environment
   update_venv          Update all Poetry dependencies
   precommit            Install pre-commit hooks (commit-msg + pre-push; skips off a git tree)
   bump_version         Bump version: LEVEL=<patch|minor|major|pre*|X.Y.Z> (default patch); also accepts a positional arg
-  changelog            Regenerate CHANGELOG.md locally (auto-updated on merge to main)
+  changelog            Regenerate CHANGELOG.md (run at release time; lands on main via PR)
 
 Corporate CA
   get_corporate_ca     Extract a TLS-proxy CA into bin/corporate_ca.pem (corporate networks)

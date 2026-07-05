@@ -30,7 +30,7 @@ Tracked in git but **excluded from the published docs site** (`exclude_docs` in 
 - [x] Public API: country subpackages re-export providers; `__version__` via `importlib.metadata`;
   removed the `main.py` placeholder and dead `run` target.
 - [x] Tooling: `install_dist_locally` (Makefile + tasks.sh); docs-deploy workflow (`docs.yaml`);
-  **changelog auto-regenerated on merge to main** (`changelog.yaml`) + local `make changelog`.
+  changelog regenerated at release time via `make changelog` (see the changelog decision below).
 - [x] Docs: Home, Usage, Examples, API Reference, FAQ, Contributing, Changelog; logo on README +
   docs homepage; tagline → "Global calendar system."; version-badge CSS; sidebar-title hidden.
 - [x] Optimized the logo PNGs (were 715 KB / 4.9 MB → ~116 KB / 163 KB) to pass the large-file hook.
@@ -54,9 +54,13 @@ Tracked in git but **excluded from the published docs site** (`exclude_docs` in 
   wheel build). PR **#1** open against `main`.
 
 ## Open / to-do
-- [ ] **Maintainer setup for the changelog action:** create a fine-grained PAT (Contents: write)
-      as the `CHANGELOG_TOKEN` secret and add it to the branch-protection **bypass** list, or the
-      auto-changelog push to protected `main` will fail. Documented in `docs/contributing.md`.
+- [x] **Changelog moved to release-time regeneration (no PAT, no bypass).** Deleted
+      `changelog.yaml` (it pushed to protected `main`, forcing a `CHANGELOG_TOKEN` PAT +
+      branch-protection bypass — the same long-lived secret just removed from PyPI). `CHANGELOG.md`
+      is now regenerated with `make changelog` on the release branch and merged via the normal PR;
+      CI never pushes to `main`. Docs (`contributing.md`, `changelog.md`), Makefile + tasks.sh
+      updated; blueprintx lesson `changelog-no-ci-push-to-protected-main` captured. **No maintainer
+      setup required.**
 - [x] **PyPI publishing switched to OIDC trusted publishing** (own commit for easy rollback).
       Both release workflows now publish via `pypa/gh-action-pypi-publish@release/v1` under the
       existing `id-token: write` / `environment: release` — no `PYPI_TOKEN` / `TEST_PYPI_TOKEN`
@@ -68,5 +72,5 @@ Tracked in git but **excluded from the published docs site** (`exclude_docs` in 
 - [x] **Orphan assets deleted:** removed `assets/logo_lorem_ipsum.png` and
       `assets/logo_wwdates_description.png`; only `logo_wwdates_no_description.png` (the sole
       referenced variant) remains.
-- [ ] **`docs.yaml` / `changelog.yaml` first runs** are untested on the real remote (need the
-      branch merged + secrets set).
+- [ ] **First real runs untested on the remote** (need the branch merged): `docs.yaml`
+      (gh-pages deploy) and the OIDC `release_*` workflows (need the trusted publishers registered).

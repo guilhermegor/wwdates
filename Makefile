@@ -38,9 +38,9 @@ bump_version:
 	@git add pyproject.toml
 	@echo "Version bumped to $$($(POETRY) version -s)"
 
-# Regenerate CHANGELOG.md locally from the conventional-commit history (preview). The
-# authoritative changelog is produced automatically on merge to main by
-# .github/workflows/changelog.yaml — you normally do not need to run this by hand.
+# Regenerate CHANGELOG.md from the conventional-commit history. Run this at release time on the
+# release branch (after bump_version); the update reaches main through the normal PR — CI never
+# pushes the changelog to protected main.
 changelog:
 	@$(POETRY) run cz changelog
 	@echo "CHANGELOG.md regenerated"
@@ -189,7 +189,7 @@ help:
 	@echo "  update_venv          Update all Poetry dependencies"
 	@echo "  precommit            Install pre-commit hooks (commit-msg + pre-push; skips off a git tree)"
 	@echo "  bump_version LEVEL=<x>  Bump version (patch|minor|major|pre*|X.Y.Z; default patch)"
-	@echo "  changelog            Regenerate CHANGELOG.md locally (auto-updated on merge to main)"
+	@echo "  changelog            Regenerate CHANGELOG.md (run at release time; lands on main via PR)"
 	@echo ""
 	@echo "Corporate CA"
 	@echo "  get_corporate_ca     Extract a TLS-proxy CA into bin/corporate_ca.pem (corporate networks)"
