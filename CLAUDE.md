@@ -75,9 +75,10 @@ build`, not `poetry build`). There is **no `make bump_version`** in this online 
 target is offline-only. To release, dispatch the workflow with the version: it runs the full test
 suite as a hard gate, tags the commit `vX.Y.Z`, builds, and uploads via OIDC **trusted
 publishing** (`pypa/gh-action-pypi-publish`, `id-token: write`) — no API token stored. Configure a
-GitHub Environment named **`release`** and a **trusted publisher** on each index (PyPI and Test
-PyPI) matching owner `guilhermegor`, repo `wwdates`, the respective workflow filename, and
-environment `release`; for a first-ever release register a **pending publisher**. The changelog is
+GitHub Environment per index (**`release_pypi`** for PyPI, **`release_test_pypi`** for Test PyPI)
+and a **trusted publisher** on each index matching owner `guilhermegor`, repo `wwdates`, the
+respective workflow filename, and its matching environment; for a first-ever release register a
+**pending publisher**. The changelog is
 generated from tags by `cz changelog` at docs-build time, never committed to `main` by CI. See
 `docs/contributing.md`.
 

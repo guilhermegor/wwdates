@@ -196,10 +196,11 @@ stamps the real version at build time. To release, trigger the workflow from the
 
 Configure once:
 
-- A GitHub **Environment** named `release` (repository settings).
+- A GitHub **Environment** per index (repository settings): `release_pypi` for PyPI,
+  `release_test_pypi` for Test PyPI.
 - A **trusted publisher** on each index (PyPI and Test PyPI), matching this repo exactly:
-  owner `guilhermegor`, repo `wwdates`, workflow filename `release_pypi.yaml` (and
-  `release_test_pypi.yaml` for Test PyPI), environment `release`. On a first-ever release use a
+  owner `guilhermegor`, repo `wwdates`, workflow filename `release_pypi.yaml` (environment
+  `release_pypi`) and `release_test_pypi.yaml` (environment `release_test_pypi`). On a first-ever release use a
   [**pending publisher**](https://docs.pypi.org/trusted-publishers/creating-a-project-through-oidc/)
   (register it before the project exists). No `PYPI_TOKEN` / `TEST_PYPI_TOKEN` secret is needed.
 
