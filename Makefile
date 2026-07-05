@@ -7,7 +7,7 @@ POETRY := bash bin/poetry_exec.sh
 # -------------------
 # VIRTUAL ENVIRONMENT
 # -------------------
-.PHONY: init ensure_env venv update_venv precommit bump_version
+.PHONY: init ensure_env venv update_venv precommit changelog
 
 init: ensure_env venv precommit
 
@@ -28,15 +28,13 @@ update_venv:
 precommit:
 	@bash bin/precommit.sh
 
-# Bump the project version. LEVEL is any Poetry bump rule
-# (patch|minor|major|premajor|preminor|prepatch|prerelease) or an explicit version
-# (e.g. 1.4.0); Poetry validates it and fails loud on a bad value. Defaults to patch.
-# Usage: make bump_version LEVEL=minor
-LEVEL ?= patch
-bump_version:
-	@$(POETRY) version $(LEVEL)
-	@git add pyproject.toml
-	@echo "Version bumped to $$($(POETRY) version -s)"
+# Regenerate CHANGELOG.md locally to preview it (cz derives sections from the git tags). There is
+# no hand-run version bump: the version is the git tag, stamped at build by poetry-dynamic-
+# versioning, and releases are cut by the CI release workflows. The published site's changelog is
+# regenerated in docs.yaml; CI never pushes the changelog to protected main.
+changelog:
+	@$(POETRY) run cz changelog
+	@echo "CHANGELOG.md regenerated"
 
 # -------------------
 # CORPORATE CA
@@ -127,11 +125,6 @@ db_restore:
 # -------------------
 # RUN
 # -------------------
-.PHONY: run
-
-run:
-	@bash bin/run.sh
-
 # -------------------
 # CONTEXT
 # -------------------
@@ -147,6 +140,24 @@ export_context:
 
 ship:
 	@bash bin/ship.sh
+
+# -------------------
+# BUILD
+# -------------------
+.PHONY: install_dist_locally
+
+# Build the wheel/sdist, install it, and smoke-import the package — catches packaging
+# mistakes (missing __init__, unshipped _internal subpackages) that source-tree tests miss.
+# Uses `python -m build` (a PEP 517 frontend) so poetry-dynamic-versioning stamps the real
+# version into the wheel; `poetry build` would ignore the backend. The editable install resolves
+# __version__ to the 0.0.0 placeholder (expected), so we report the built wheel's actual
+# tag-derived version rather than that placeholder.
+install_dist_locally:
+	@rm -rf dist/* build/ *.egg-info/
+	@$(POETRY) run python -m build
+	@$(POETRY) install
+	@$(POETRY) run python -c "from wwdates.br.b3 import DatesBRB3; import wwdates; assert wwdates.__version__; print('Package import works; __version__ resolves')"
+	@$(POETRY) run python -c "import pathlib; print('Built wheel:', sorted(pathlib.Path('dist').glob('*.whl'))[-1].name)"
 
 # -------------------
 # DOCS
@@ -172,7 +183,7 @@ help:
 	@echo "  venv                 Create Poetry venv and install dependencies"
 	@echo "  update_venv          Update all Poetry dependencies"
 	@echo "  precommit            Install pre-commit hooks (commit-msg + pre-push; skips off a git tree)"
-	@echo "  bump_version LEVEL=<x>  Bump version (patch|minor|major|pre*|X.Y.Z; default patch)"
+	@echo "  changelog            Regenerate CHANGELOG.md locally to preview (version comes from git tags)"
 	@echo ""
 	@echo "Corporate CA"
 	@echo "  get_corporate_ca     Extract a TLS-proxy CA into bin/corporate_ca.pem (corporate networks)"
@@ -199,8 +210,8 @@ help:
 	@echo "Docs"
 	@echo "  docs_server          Serve MkDocs site locally at http://0.0.0.0:8000"
 	@echo ""
-	@echo "Run"
-	@echo "  run                  Run src/main.py (auto-installs Poetry if missing)"
+	@echo "Build"
+	@echo "  install_dist_locally Build the wheel, install it, and smoke-import the package"
 	@echo ""
 	@echo "Context / Ship"
 	@echo "  export_context       Flatten the repo into repo_context.txt for pasting into a web-UI LLM"

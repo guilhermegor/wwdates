@@ -1,6 +1,6 @@
-"""Logging module — in-repo logging seam (vendored from stpstone).
+"""Logging module — the package's in-repo logging seam.
 
-One home for the project's logging, replacing a dependency on the umbrella ``stpstone`` package:
+One home for the project's logging, so callers depend on no external logging backend:
 
 - :class:`CreateLog` — configures a file logger (:meth:`CreateLog.basic_conf`) and emits messages
   with caller context (:meth:`CreateLog.log_message`); the message is prefixed with
@@ -35,11 +35,14 @@ else:
 		from wwdates._internal.utils.typing import TypeChecker, type_checker
 
 
-# Frame modules skipped when reconstructing the caller's [Class.method] context: the
-# stdlib logging/inspect machinery, pydantic/typing internals, and the project's own
-# runtime type-checker (its wrapper frames would otherwise mask the real caller).
+# Frame modules skipped when reconstructing the caller's [Class.method] context: the stdlib
+# logging/inspect machinery, pydantic/typing internals, the project's runtime type-checker, and
+# the logging seam itself (logs / logs_emitter / retry) — their wrapper frames would otherwise
+# mask the real caller. Matched on the module's *last dotted component* so it is layout-agnostic
+# (``wwdates._internal.utils.typing`` and ``chassis.typing`` both match ``typing``); a plain
+# ``startswith`` prefix would silently fail to match the package-qualified module names.
 _SET_SKIP_MODULES = frozenset(
-	{"pydantic", "typing", "inspect", "logging", "utils.typing", "chassis.typing"}
+	{"pydantic", "typing", "inspect", "logging", "logs", "logs_emitter", "retry"}
 )
 
 # The severities a message may carry — shared by ``CreateLog.log_message`` and the module-level
@@ -165,7 +168,7 @@ class CreateLog(metaclass=TypeChecker):
 			if not frame:
 				break
 			str_module_name = frame.f_globals.get("__name__", "UnknownModule")
-			if any(str_module_name.startswith(prefix) for prefix in _SET_SKIP_MODULES):
+			if str_module_name.rsplit(".", 1)[-1] in _SET_SKIP_MODULES:
 				continue
 			self_potential_cls = frame.f_locals.get("self")
 			if self_potential_cls is not None and not isinstance(

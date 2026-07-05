@@ -7,32 +7,19 @@ on:
         description: 'Version to release (e.g., 1.2.3, 1.2.3a1, 1.2.3b1, 1.2.3rc1)'
         required: true
         type: string
-      tests_passed:
-        description: 'Confirm tests have already passed before releasing'
-        required: true
-        type: choice
-        options:
-          - 'true'
-          - 'false'
-        default: 'true'
 
 env:
   PACKAGE_NAME: "wwdates"
   OWNER: "guilhermegor"
 
 jobs:
-  check_tests:
-    if: ${{ github.event_name == 'push' }}
+  # Hard release gate: always run the full test suite (tests.yaml, full matrix) on the code
+  # being released. The build/publish jobs depend on this, so a release cannot proceed unless
+  # the tests actually pass here — the gate is enforced by the pipeline, never self-attested
+  # via a form input.
+  run_tests:
     uses: ./.github/workflows/tests.yaml
     secrets: inherit
-
-  release:
-    if: ${{ (github.event_name == 'workflow_dispatch' && inputs.tests_passed == 'true') || (github.event_name == 'push' && needs.check_tests.outputs.ready_for_release == 'true') }}
-    needs: [check_tests]
-    runs-on: ubuntu-latest
-    steps:
-      - name: Check Test Status
-        run: echo "Tests passed, proceeding with release"
 
   details:
     runs-on: ubuntu-latest
@@ -54,7 +41,7 @@ jobs:
           if [ "$EVENT_NAME" == "workflow_dispatch" ]; then
             NEW_VERSION="$INPUT_VERSION"
             SUFFIX=$(echo "$NEW_VERSION" | grep -oP '[a-z]+[0-9]+' || echo "")
-            TAG_NAME="$NEW_VERSION"
+            TAG_NAME="v$NEW_VERSION"
           else
             TAG_NAME=${GITHUB_REF#refs/tags/}
             NEW_VERSION=$(echo $TAG_NAME | awk -F'-' '{print $1}')
@@ -99,7 +86,7 @@ jobs:
           fi
 
   setup_and_build:
-    needs: [details, check_pypi]
+    needs: [details, check_pypi, run_tests]
     runs-on: ubuntu-latest
     strategy:
       matrix:
@@ -107,6 +94,9 @@ jobs:
     steps:
       - name: Checkout Code
         uses: actions/checkout@v4
+        with:
+          # Full history + tags so poetry-dynamic-versioning can derive the version from the tag.
+          fetch-depth: 0
 
       - name: Set Up Python ${{ matrix.python-version }}
         uses: actions/setup-python@v5
@@ -170,14 +160,17 @@ jobs:
           poetry env activate
 
       - name: Build Package
+        env:
+          TAG_NAME: ${{ needs.details.outputs.tag_name }}
         run: |
-          poetry version ${{ needs.details.outputs.new_version }}
-          if [ ! -d "dist" ] || [ ! -d "dist/${{ env.PACKAGE_NAME }}-${{ needs.details.outputs.new_version }}" ]; then
-            echo "Building package for version ${{ needs.details.outputs.new_version }}"
-            poetry build
-          else
-            echo "Package version already built, skipping build step"
-          fi
+          # poetry-dynamic-versioning derives the version from a git tag. Tag this commit locally
+          # with the requested version so the wheel/sdist are stamped with exactly that version;
+          # the authoritative tag is pushed by the GitHub Release job after a successful publish.
+          git config user.email "actions@github.com"
+          git config user.name "github-actions"
+          git tag "$TAG_NAME"
+          python -m pip install --upgrade build
+          python -m build
 
       - name: Upload Artifacts
         uses: actions/upload-artifact@v4
@@ -194,74 +187,20 @@ jobs:
     permissions:
       id-token: write
     steps:
-      - name: Checkout Code
-        uses: actions/checkout@v4
-
-      - name: Set Up Python
-        uses: actions/setup-python@v5
-        with:
-          python-version: "3.12.8"
-
-      - name: Install Poetry
-        uses: snok/install-poetry@v1
-        with:
-          virtualenvs-in-project: true
-          virtualenvs-create: true
-          version: 2.1.2
-
-      - name: Load Cached Virtual Environment
-        id: cached-venv
-        uses: actions/cache@v3
-        with:
-          path: |
-            .venv
-            poetry.lock
-          key: venv-${{ runner.os }}-3.12.8-${{ hashFiles('pyproject.toml') }}
-
-      - name: Install Dependencies
-        if: steps.cached-venv.outputs.cache-hit != 'true'
-        run: |
-          # Temporary pyproject without Windows platform-specific dependencies
-          cp pyproject.toml pyproject.original.toml
-          cat pyproject.original.toml | python -c '
-          import sys, re
-          content = sys.stdin.read()
-          content = re.sub(r".*platform\s*=\s*\"win32\".*", "", content)
-          content = re.sub(r"pywin32\s*=.*\n", "", content)
-          print(content)
-          ' > pyproject.toml
-
-          # Regenerate lock file, if needed
-          if ! poetry check --lock; then
-            echo "Lock file is outdated, regenerating..."
-            rm -f poetry.lock
-            poetry lock --no-cache
-          fi
-
-          # Install all dependencies including dev and docs
-          poetry install --no-interaction --no-root
-
-          # Restore original pyproject.toml
-          mv pyproject.original.toml pyproject.toml
-          poetry env activate
-
       - name: Download Artifacts
         uses: actions/download-artifact@v4
         with:
           name: dist
           path: dist/
 
+      # OIDC trusted publishing — no stored token. The runner mints a short-lived
+      # OpenID Connect token (via `id-token: write`, above) that PyPI verifies against the
+      # trusted publisher registered for this repo/workflow/environment, then issues a
+      # one-time upload token for this run only. Requires a trusted publisher configured on
+      # PyPI for owner=guilhermegor, repo=wwdates, workflow=release_pypi.yaml,
+      # environment=release. No PYPI_TOKEN secret is used.
       - name: Publish to PyPI
-        run: |
-          poetry config pypi-token.pypi "${{ secrets.PYPI_TOKEN }}"
-          poetry publish || {
-            echo "Poetry publish failed, falling back to twine"
-            poetry run twine upload \
-              --verbose \
-              --username "__token__" \
-              --password "${{ secrets.PYPI_TOKEN }}" \
-              dist/*
-          }
+        uses: pypa/gh-action-pypi-publish@release/v1
 
   github_release:
     name: Create GitHub Release

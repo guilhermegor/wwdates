@@ -1,11 +1,15 @@
 [tool.poetry]
 name = "wwdates"
-version = "0.0.1"
-description = "A Python library for worldwide holidays, comprehensive date operations and formatting."
+# Placeholder only — the real version is derived from the git tag at build time by
+# poetry-dynamic-versioning (see [tool.poetry-dynamic-versioning]). Do not bump this by hand;
+# releases are cut by tagging via the CI release workflows.
+version = "0.0.0"
+description = "Global calendar system. Python package."
 authors = ["guilhermegor"]
 readme = "README.md"
 license = "MIT"
-homepage = "https://example.com/wwdates"
+homepage = "https://guilhermegor.github.io/wwdates/"
+documentation = "https://guilhermegor.github.io/wwdates/"
 repository = "https://github.com/guilhermegor/wwdates"
 keywords = ["wwdates", "python", "library"]
 packages = [{ include = "wwdates", from = "src" }]
@@ -24,12 +28,37 @@ classifiers = [
 [tool.poetry.urls]
 "Bug Reports" = "https://github.com/guilhermegor/wwdates/issues"
 "Source" = "https://github.com/guilhermegor/wwdates"
+"Documentation" = "https://guilhermegor.github.io/wwdates/"
 
 [tool.poetry.dependencies]
 python = ">=3.10,<4.0"
 # Required by the private _internal helpers (dtypes / tabular_reader / config.contracts).
 pandas = ">=2.1.0"
 openpyxl = ">=3.1.0"
+requests = "^2.34.2"
+businesstimedelta = "^1.0.1"
+python-dateutil = "^2.9.0.post0"
+xlrd = "^2.0.2"
+lxml = "^6.1.1"
+tzdata = "^2026.2"
+holidays = "^0.99"
+# Optional — only DatesUSFederalHolidaysWeb (the live-scrape provider) needs a browser.
+# Installed via the `web` extra: pip install "wwdates[web]".
+playwright = { version = "^1.61.0", optional = true }
+
+[tool.poetry.extras]
+# `pip install "wwdates[web]"` adds Playwright for the live-scrape DatesUSFederalHolidaysWeb
+# provider. After installing, run `playwright install chromium` once to fetch the browser.
+web = ["playwright"]
+
+[tool.commitizen]
+# Conventional-commit driven changelog. The version comes from the git tag
+# (poetry-dynamic-versioning); `cz changelog` groups commits by tag. Releases are cut by the CI
+# release workflows (tag -> build -> publish), not by a hand-run bump.
+name = "cz_conventional_commits"
+version_provider = "poetry"
+tag_format = "v$version"
+update_changelog_on_bump = true
 
 [tool.poetry.group.dev.dependencies]
 pre-commit = ">=4.1.0"
@@ -58,12 +87,23 @@ sqlfluff = ">=3.0.0"
 yamllint = ">=1.35.0"
 shfmt-py = ">=3.7.0"
 shellcheck-py = ">=0.10.0"
+pytest-mock = "^3.15.1"
 
 [tool.poetry.group.docs.dependencies]
 mkdocs = ">=1.6.0"
 mkdocs-material = ">=9.5.0"
 pymdown-extensions = ">=10.0"
 
+[tool.poetry-dynamic-versioning]
+# The published version is derived from the latest git tag matching `v$version` (e.g. v0.2.0).
+# On an exact tag the build is clean (0.2.0); off-tag builds get a PEP 440 dev version. CI stamps
+# a release by tagging the commit before build; Test PyPI passes POETRY_DYNAMIC_VERSIONING_BYPASS
+# to build a specific version without creating a tag. Requires `python -m build` (a PEP 517
+# frontend) rather than `poetry build`, so the backend below is honoured.
+enable = true
+vcs = "git"
+style = "pep440"
+
 [build-system]
-requires = ["poetry-core>=1.7.0"]
-build-backend = "poetry.core.masonry.api"
+requires = ["poetry-core>=1.7.0", "poetry-dynamic-versioning>=1.4.0,<2.0.0"]
+build-backend = "poetry_dynamic_versioning.backend"

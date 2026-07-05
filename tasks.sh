@@ -44,15 +44,13 @@ init() {
 	precommit
 }
 
-bump_version() {
-	# LEVEL is any Poetry bump rule (patch|minor|major|premajor|preminor|prepatch|
-	# prerelease) or an explicit version (e.g. 1.4.0); Poetry validates it and fails
-	# loud on a bad value. Accepts LEVEL=<x> (parity with the Makefile) or a positional
-	# argument; defaults to patch.
-	local str_level="${LEVEL:-${1:-patch}}"
-	poetry_exec version "$str_level"
-	git add pyproject.toml
-	echo "Version bumped to $(poetry_exec version -s)"
+changelog() {
+	# Regenerate CHANGELOG.md locally to preview it (cz derives sections from the git tags). There
+	# is no hand-run version bump: the version is the git tag, stamped at build by poetry-dynamic-
+	# versioning, and releases are cut by the CI release workflows. The published site's changelog
+	# is regenerated in docs.yaml; CI never pushes the changelog to protected main.
+	poetry_exec run cz changelog
+	echo "CHANGELOG.md regenerated"
 }
 
 # -------------------
@@ -159,8 +157,20 @@ db_restore() {
 # RUN
 # -------------------
 
-run() {
-	bash "$SCRIPT_DIR/bin/run.sh"
+# -------------------
+# BUILD
+# -------------------
+
+install_dist_locally() {
+	# Uses `python -m build` (a PEP 517 frontend) so poetry-dynamic-versioning stamps the real
+	# version into the wheel; `poetry build` would ignore the backend. The editable install
+	# resolves __version__ to the 0.0.0 placeholder (expected), so we report the built wheel's
+	# actual tag-derived version rather than that placeholder.
+	rm -rf dist/* build/ ./*.egg-info/
+	poetry_exec run python -m build
+	poetry_exec install
+	poetry_exec run python -c "from wwdates.br.b3 import DatesBRB3; import wwdates; assert wwdates.__version__; print('Package import works; __version__ resolves')"
+	poetry_exec run python -c "import pathlib; print('Built wheel:', sorted(pathlib.Path('dist').glob('*.whl'))[-1].name)"
 }
 
 # -------------------
@@ -224,7 +234,7 @@ Virtual Environment
   venv                 Create Poetry venv and install dependencies
   update_venv          Update all Poetry dependencies
   precommit            Install pre-commit hooks (commit-msg + pre-push; skips off a git tree)
-  bump_version         Bump version: LEVEL=<patch|minor|major|pre*|X.Y.Z> (default patch); also accepts a positional arg
+  changelog            Regenerate CHANGELOG.md locally to preview (version comes from git tags)
 
 Corporate CA
   get_corporate_ca     Extract a TLS-proxy CA into bin/corporate_ca.pem (corporate networks)
@@ -252,9 +262,9 @@ Database
 
 Docs
   docs_server          Serve MkDocs site locally at http://0.0.0.0:8000
+  install_dist_locally Build the wheel, install it, and smoke-import the package
 
 Run
-  run                  Run src/main.py (auto-installs Poetry if missing)
 
 Context / Ship
   export_context       Flatten the repo into repo_context.txt for pasting into a web-UI LLM
@@ -280,7 +290,7 @@ ensure_env) ensure_env ;;
 venv) venv ;;
 update_venv) update_venv ;;
 precommit) precommit ;;
-bump_version) bump_version "${2:-}" ;;
+changelog) changelog ;;
 get_corporate_ca) get_corporate_ca ;;
 unit_tests) unit_tests ;;
 integration_tests) integration_tests ;;
@@ -298,7 +308,7 @@ db_up) db_up ;;
 db_backup) db_backup ;;
 db_restore) db_restore ;;
 docs_server) docs_server ;;
-run) run ;;
+install_dist_locally) install_dist_locally ;;
 export_context) export_context "${2:-}" ;;
 ship) ship ;;
 new_branch) new_branch "${2:-}" ;;

@@ -1,116 +1,137 @@
-# Wwdates <img src="assets/logo_lorem_ipsum.png" align="right" width="200" style="border-radius: 15px;" alt="Wwdates">
+# wwdates <img src="assets/logo_wwdates_no_description.png" align="right" width="200" style="border-radius: 15px;" alt="wwdates">
 
 [![Project Status: Active](https://www.repostatus.org/badges/latest/active.svg)](https://www.repostatus.org/#active)
-![Python Version](https://img.shields.io/badge/python-${PYTHON_VERSIONS}-blue.svg)
-[![Linting](https://img.shields.io/badge/linting-ruff_|_codespell-blue)](https://github.com/astral-sh/ruff+https://github.com/codespell-project/codespell)
-![Formatting: isort](https://img.shields.io/badge/formatting-isort-%231674b1)
+![Python Version](https://img.shields.io/badge/python-3.10%2B-blue.svg)
+[![Linting](https://img.shields.io/badge/linting-ruff_|_codespell-blue)](https://github.com/astral-sh/ruff)
+[![Type-checked: mypy](https://img.shields.io/badge/type--checked-mypy-blue)](https://mypy-lang.org/)
 ![Test Coverage](./coverage.svg)
-![License](https://img.shields.io/badge/license-${PROJECT_LICENSE}-green.svg)
-![Open Issues](https://img.shields.io/github/issues/${GITHUB_USERNAME}/${PROJECT_SLUG})
+![License](https://img.shields.io/badge/license-MIT-green.svg)
+![Open Issues](https://img.shields.io/github/issues/guilhermegor/wwdates)
 ![Contributions Welcome](https://img.shields.io/badge/contributions-welcome-darkgreen.svg)
 
-${PROJECT_DESCRIPTION}
+Global calendar system. Python package.
+
+`wwdates` fetches official holiday calendars for Brazil (ANBIMA, FEBRABAN, B3) and the United
+States (Nasdaq, Federal Holidays), then layers a rich set of working-day / date helpers on top —
+`is_working_day`, `add_working_days`, `working_days_range`, `delta_working_days`, timezone-aware
+conversions, and more. Fetched calendars are cached locally so repeated calls stay fast and
+offline-friendly.
+
+📖 **Full documentation:** <https://guilhermegor.github.io/wwdates/>
 
 ## ✨ Key Features
 
-> Replace these placeholder groups with your project's actual capabilities.
-> Group features by domain or capability — one `###` heading per area.
+### 🗓️ Holiday providers
 
-### 🧩 Capability Group 1
-- [Feature placeholder 1](${LINK_PLACEHOLDER})
-- [Feature placeholder 2](${LINK_PLACEHOLDER})
-- [Feature placeholder 3](${LINK_PLACEHOLDER})
+One class per calendar source; all share the same date-operations surface — they differ only in
+**which** holidays they load.
 
-### 🧩 Capability Group 2
-- [Feature placeholder 4](${LINK_PLACEHOLDER})
-- [Feature placeholder 5](${LINK_PLACEHOLDER})
-- [Feature placeholder 6](${LINK_PLACEHOLDER})
+| Provider                    | Import                            | Holidays                                      |
+| --------------------------- | --------------------------------- | --------------------------------------------- |
+| `DatesBRAnbima`             | `wwdates.br.anbima`               | 🇧🇷 ANBIMA national holidays                   |
+| `DatesBRFebraban`           | `wwdates.br.febraban`             | 🇧🇷 FEBRABAN bank holidays                     |
+| `DatesBRB3`                 | `wwdates.br.b3`                   | 🇧🇷 ANBIMA + B3 exchange non-trading days      |
+| `DatesUSNasdaq`             | `wwdates.us.nasdaq`               | 🇺🇸 Nasdaq market closures                     |
+| `DatesUSFederalHolidays`    | `wwdates.us.federal_holidays`     | 🇺🇸 US federal holidays (offline, recommended) |
+| `DatesUSFederalHolidaysWeb` | `wwdates.us.federal_holidays_web` | 🇺🇸 US federal holidays via live scrape        |
 
-### ⚙️ Utilities
-- [Utility placeholder 1](${LINK_PLACEHOLDER})
-- [Utility placeholder 2](${LINK_PLACEHOLDER})
+### ⚙️ Shared calendar operations
+
+Every provider inherits the full surface: working-day predicates (`is_working_day`, `is_holiday`,
+`is_weekend`), business-day arithmetic (`add_working_days`, `nearest_working_day`,
+`get_nth_weekday_month`), ranges & deltas (`working_days_range`, `delta_working_days`,
+`delta_working_hours`), timezone/timestamp conversions, and locale-aware formatting. See the
+[API Reference](https://guilhermegor.github.io/wwdates/api/) for the complete list.
 
 ## 🚀 Getting Started
 
 ### Prerequisites
-- Python ${PYTHON_VERSIONS}
+
+- Python 3.10+
 - Poetry (recommended)
-- Optional: Makefile
 
 ### Installation
 
-**Option 1: Pip (recommended)**
 ```bash
-pip install ${PYPI_NAME}
+pip install wwdates
 ```
 
-**Option 2: Build from source**
+Or with Poetry:
+
 ```bash
-git clone https://github.com/${GITHUB_USERNAME}/${PROJECT_SLUG}.git
-cd ${PROJECT_SLUG}
-pyenv install ${PYTHON_VERSION_PIN}
-pyenv local ${PYTHON_VERSION_PIN}
-poetry install --no-root
-poetry shell
+poetry add wwdates
 ```
 
-**Make (optional automation)**
-- Windows: install via MinGW or Chocolatey
-- macOS: Xcode CLI tools or Homebrew
-- Linux: sudo apt-get install build-essential
+Everything works offline after install — **no browser needed**. The recommended
+`DatesUSFederalHolidays` computes federal holidays locally.
 
-### Running Tests
+### Optional: the browser-scrape provider (`[web]` extra)
+
+**Only** the `DatesUSFederalHolidaysWeb` provider needs a browser — it scrapes
+federalholidays.net with Playwright, which is **not** installed by the base package. It is
+**vital only if you specifically want that provider's live-scraped dates**; otherwise skip this
+entirely and use the offline `DatesUSFederalHolidays`.
+
+To enable it, install the optional `web` extra (note the brackets — quote them so the shell does
+not glob), then fetch the browser binary:
+
 ```bash
-poetry run pytest tests/unit/ -v
-poetry run pytest tests/integration/ -v
+pip install "wwdates[web]"   # adds Playwright
+playwright install chromium  # one-time browser download (pip cannot do this step)
 ```
 
-## 📂 Project Structure (template)
+Without both steps, constructing/using `DatesUSFederalHolidaysWeb` raises a clear `ImportError`
+telling you to run them.
+
+### Quick start
+
+```python
+from datetime import date
+
+from wwdates.br.b3 import DatesBRB3
+
+cls_cal = DatesBRB3()
+cls_cal.is_working_day(date(2024, 12, 25))       # False — Christmas
+cls_cal.add_working_days(date(2024, 12, 24), 3)  # skips holidays + weekends
+cls_cal.holidays()                               # [(name, date), ...]
 ```
-${PROJECT_SLUG}/
-├── .github/
-│   ├── workflows/
-│   ├── CODEOWNERS
-│   └── PULL_REQUEST_TEMPLATE.md
-├── .vscode/
-├── bin/
-│   ├── check_unix_filenames.sh
-│   ├── fix_playwright.sh
-│   ├── start.sh
-│   └── test_urls_docstrings.sh
-├── data/
-├── docs/
-├── examples/
-├── img/
-├── assets/
-│   └── logo.png
-├── src/${PACKAGE_IMPORT_PATH}/
-├── tests/
-│   ├── unit/
-│   ├── integration/
-│   └── performance/
-├── .gitignore
-├── .pre-commit-config.yaml
-├── .python-version
-├── LICENSE
-├── Makefile
-├── poetry.lock
-├── pyproject.toml
-├── README.md
-├── requirements.txt
-└── requirements-prd.txt
+
+`DatesBRB3` here is just an example — the same methods work on every provider; only the loaded
+holiday set differs. More recipes in the
+[Examples](https://guilhermegor.github.io/wwdates/examples/) guide.
+
+## 📚 Documentation
+
+- [Usage](https://guilhermegor.github.io/wwdates/usage/) — install, providers, basics
+- [Examples](https://guilhermegor.github.io/wwdates/examples/) — task-oriented recipes
+- [API Reference](https://guilhermegor.github.io/wwdates/api/) — every class and method
+- [FAQ](https://guilhermegor.github.io/wwdates/faq/) — common questions & troubleshooting
+- [Contributing](https://guilhermegor.github.io/wwdates/contributing/) — dev setup, tests, releasing
+- [Changelog](https://guilhermegor.github.io/wwdates/changelog/) — release history
+
+## 🛠️ Development
+
+```bash
+git clone https://github.com/guilhermegor/wwdates.git
+cd wwdates
+make init                  # or: bash tasks.sh init  (venv + deps + pre-commit hooks)
+make unit_tests            # run the test suite
+make install_dist_locally  # build the wheel and smoke-import it
 ```
+
+See [Contributing](https://guilhermegor.github.io/wwdates/contributing/) for the full branch/PR
+workflow and CI gate.
 
 ## 👨‍💻 Authors
-- ${AUTHOR_NAME} — [GitHub](https://github.com/${GITHUB_USERNAME}) | [LinkedIn](${LINKEDIN_URL})
+
+- guilhermegor — [GitHub](https://github.com/guilhermegor)
 
 ## 📜 License
-This project is licensed under ${PROJECT_LICENSE}. Update this section if you use a different license.
 
-## 🙌 Acknowledgments
-- Inspired by relevant open-source work.
-- Thank contributors and the community.
+This project is licensed under the **MIT** License — see [`LICENSE`](LICENSE) for details.
 
 ## 🔗 Useful Links
-- [GitHub Repository](https://github.com/${GITHUB_USERNAME}/${PROJECT_SLUG})
-- [Issue Tracker](https://github.com/${GITHUB_USERNAME}/${PROJECT_SLUG}/issues)
+
+- [Documentation](https://guilhermegor.github.io/wwdates/)
+- [GitHub Repository](https://github.com/guilhermegor/wwdates)
+- [Issue Tracker](https://github.com/guilhermegor/wwdates/issues)

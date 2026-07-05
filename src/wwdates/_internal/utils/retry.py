@@ -41,40 +41,47 @@ _R = TypeVar("_R")
 _DEFAULT_MAX_ATTEMPTS: int = 3
 _DEFAULT_BASE_WAIT_S: float = 2.0
 _DEFAULT_FACTOR: float = 2.0
-_LOGGER: logging.Logger = logging.getLogger(__name__)
 
 
 class LogEmitter(metaclass=TypeChecker):
-	"""Sink the retry decorator writes each retry warning to (injectable).
+	"""Sink a module writes messages to (injectable).
 
-	The default implementation forwards to a standard-library :class:`logging.Logger`. A
-	caller that wants richer routing (e.g. the project's ``utils.logs`` formatting) injects
-	its own :class:`LogEmitter` subclass — ``retry.py`` then depends only on the
-	``log_message`` method, never on any concrete logging module, so the seam stays
-	dependency-free for a distributable library.
+	Behaviour mirrors the convenience of a bare script: **when no logger is injected, messages
+	are printed to the screen**; **when a :class:`logging.Logger` is injected, messages are
+	routed to it** at the named level (so they land wherever that logger's handlers point). A
+	caller wanting richer routing (e.g. the project's ``utils.logs`` formatting) injects its own
+	:class:`LogEmitter` subclass — callers depend only on the ``log_message`` method, never on
+	any concrete logging module, so the seam stays dependency-free for a distributable library.
 	"""
 
 	def __init__(self, cls_logger: logging.Logger | None = None) -> None:
-		"""Build an emitter over ``cls_logger`` (defaults to this module's logger).
+		"""Build an emitter, optionally over an injected logger.
 
 		Parameters
 		----------
 		cls_logger : logging.Logger, optional
-			The standard-library logger to write to; defaults to the logger for this module.
+			The standard-library logger to write to. When ``None`` (the default), messages are
+			printed to the screen instead of being routed to a logger.
 		"""
-		self._cls_logger = cls_logger if cls_logger is not None else _LOGGER
+		self._cls_logger = cls_logger
 
 	def log_message(self, str_message: str, str_level: str) -> None:
 		"""Emit ``str_message`` at the named level.
 
+		With no injected logger the message is printed to the screen (prefixed with the level);
+		with an injected logger it is routed to that logger's matching method.
+
 		Parameters
 		----------
 		str_message : str
-			The message to log.
+			The message to emit.
 		str_level : str
-			The level name (e.g. ``"warning"``, ``"info"``); falls back to ``warning`` when
-			the underlying logger has no method of that name.
+			The level name (e.g. ``"warning"``, ``"info"``); falls back to ``warning`` when the
+			injected logger has no method of that name.
 		"""
+		if self._cls_logger is None:
+			print(f"[{str_level.upper()}] {str_message}")
+			return
 		fn_emit = getattr(self._cls_logger, str_level.lower(), self._cls_logger.warning)
 		fn_emit(str_message)
 

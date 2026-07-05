@@ -48,9 +48,13 @@ of your public `__all__`. The internal imports are package-qualified
   tests, coverage badge.
 - **Tests**: `pytest` — `make unit_tests` (`poetry run pytest tests/unit/`). Write
   pytest-style functions with fixtures, not `unittest.TestCase`.
-- **Explicit column typing & Brazilian identifiers** — if the library touches pandas, type
-  every DataFrame on load via `apply_dtypes` (`_internal.utils.dtypes`, never pandas'
-  inference), route reads through `_internal.utils.tabular_reader`, and use
+- **Tabular reads go through `tabular_reader` + a contract — never raw `pd.read_*`.** Any
+  time the library ingests a table (Excel/CSV/JSON/SQL), call
+  `_internal.utils.tabular_reader.read_table` / `read_query` — **never** `pd.read_excel`,
+  `pd.read_csv`, `pd.read_json`, etc. directly. Each source **must** declare a `FileContract`
+  in `_internal/config/contracts/` (one file per source, re-exported via that package's
+  `__init__`), so the read is schema-validated at ingestion. Every DataFrame is typed on load
+  via `apply_dtypes` (`_internal.utils.dtypes`, never pandas' inference). Use
   `_internal.utils.br_identifiers` for CNPJ/CPF (alphanumeric-aware for the 2026 CNPJ).
 - **No `.env`** — a distributable library has no runtime env to seed (unlike the service
   tiers), so none is shipped.
@@ -65,12 +69,17 @@ Two workflows ship under `.github/workflows/` (present only when a GitHub remote
 - `release_test_pypi.yaml` — publish to **Test PyPI** first (`workflow_dispatch`).
 - `release_pypi.yaml` — publish to **PyPI** and cut a GitHub release.
 
-Both gate on the version being greater than what is already published, build with Poetry,
-and fall back to `twine` if `poetry publish` is unavailable. Configure these repository
-secrets and a GitHub Environment named **`release`**:
-
-- `PYPI_TOKEN` — a PyPI API token.
-- `TEST_PYPI_TOKEN` — a Test PyPI API token.
+**Versioning is tag-driven.** `[tool.poetry] version` is a `0.0.0` placeholder;
+**poetry-dynamic-versioning** stamps the real version from the git tag at build time (`python -m
+build`, not `poetry build`). There is **no `make bump_version`** in this online scaffold — that
+target is offline-only. To release, dispatch the workflow with the version: it runs the full test
+suite as a hard gate, tags the commit `vX.Y.Z`, builds, and uploads via OIDC **trusted
+publishing** (`pypa/gh-action-pypi-publish`, `id-token: write`) — no API token stored. Configure a
+GitHub Environment named **`release`** and a **trusted publisher** on each index (PyPI and Test
+PyPI) matching owner `guilhermegor`, repo `wwdates`, the respective workflow filename, and
+environment `release`; for a first-ever release register a **pending publisher**. The changelog is
+generated from tags by `cz changelog` at docs-build time, never committed to `main` by CI. See
+`docs/contributing.md`.
 
 ## Extending this template
 

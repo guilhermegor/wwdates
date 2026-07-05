@@ -95,6 +95,7 @@ def read_table(
 	str_encoding: str = "utf-8-sig",
 	int_header_row: int = 0,
 	int_csv_quoting: int = csv.QUOTE_MINIMAL,
+	int_skip_rows: int = 0,
 ) -> pd.DataFrame:
 	"""Read a file (Excel/CSV/JSON) into a typed, contract-validated DataFrame.
 
@@ -118,7 +119,7 @@ def read_table(
 	str_csv_sep : str, optional
 		CSV delimiter (default ``";"``); ignored otherwise.
 	list_columns : sequence of str, optional
-		CSV only: read **headerless** and assign these names in order. Ignored otherwise.
+		CSV or Excel: read **headerless** and assign these names in order. Ignored otherwise.
 	str_encoding : str, optional
 		CSV only: text encoding (default ``"utf-8-sig"`` so a leading BOM never corrupts the
 		first cell). Pass ``"ISO-8859-1"`` for Latin-1 exports. Ignored otherwise.
@@ -130,6 +131,9 @@ def read_table(
 		``;``-delimited regulatory dumps (e.g. CVM open data), where an upstream submitter's
 		stray ``"`` is literal text, not a field wrapper — the default engine would swallow the
 		delimiter and shift subsequent columns, corrupting the parse. Ignored otherwise.
+	int_skip_rows : int, optional
+		Excel only: number of leading rows to skip before reading (default ``0``); useful for
+		workbooks with a title banner above the data. Ignored otherwise.
 
 	Returns
 	-------
@@ -150,6 +154,7 @@ def read_table(
 		str_encoding,
 		int_header_row,
 		int_csv_quoting,
+		int_skip_rows,
 	)
 	return _finalize(df_raw, dict_dtypes, list_date_cols, cls_contract)
 
@@ -357,6 +362,7 @@ def _read_raw(
 	str_encoding: str = "utf-8-sig",
 	int_header_row: int = 0,
 	int_csv_quoting: int = csv.QUOTE_MINIMAL,
+	int_skip_rows: int = 0,
 ) -> pd.DataFrame:
 	"""Read a file into a raw DataFrame, dispatching by extension (CSV, JSON, or Excel).
 
@@ -378,6 +384,8 @@ def _read_raw(
 		cell); pass ``"ISO-8859-1"`` for Latin-1 exports.
 	int_header_row : int, optional
 		Excel header-row index (default ``0``). Ignored for CSV/JSON.
+	int_skip_rows : int, optional
+		Excel: number of leading rows to skip before reading (default ``0``). Ignored otherwise.
 	int_csv_quoting : int, optional
 		CSV :mod:`csv` quoting constant (default ``csv.QUOTE_MINIMAL``). ``csv.QUOTE_NONE``
 		treats a stray ``"`` as literal text — correct for ``;``-delimited regulatory dumps.
@@ -420,4 +428,19 @@ def _read_raw(
 	# arrive with locale-dependent default sheet names such as Planilha1 or Sheet1, so read the
 	# first sheet by position rather than guessing its name.
 	sheet_excel: str | int = 0 if str_sheet == "" else str_sheet
-	return pd.read_excel(path_file, sheet_name=sheet_excel, dtype=str_dtype, header=int_header_row)
+	if list_columns is not None:
+		return pd.read_excel(
+			path_file,
+			sheet_name=sheet_excel,
+			dtype=str_dtype,
+			header=None,
+			names=list(list_columns),
+			skiprows=int_skip_rows,
+		)
+	return pd.read_excel(
+		path_file,
+		sheet_name=sheet_excel,
+		dtype=str_dtype,
+		header=int_header_row,
+		skiprows=int_skip_rows,
+	)

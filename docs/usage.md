@@ -1,73 +1,113 @@
 # **Usage**
 
-Examples for installing and using this library.
+Installing and using `wwdates`.
 
-> **See also:** [API Reference](api.md)
+> **See also:** [API Reference](api.md) for the full method list · [Contributing](contributing.md)
+> to develop or release the library.
 
 ---
 
 ## Installation
 
 ```bash
-pip install <package-name>
+pip install wwdates
 ```
 
 Or with Poetry:
 
 ```bash
-poetry add <package-name>
+poetry add wwdates
 ```
+
+Everything above works offline after install — **no browser needed**. The recommended
+`DatesUSFederalHolidays` computes federal holidays locally.
+
+### Optional: the browser-scrape provider (`[web]` extra)
+
+**Only** `DatesUSFederalHolidaysWeb` needs a browser — it scrapes federalholidays.net with
+Playwright, which the base package does **not** install. It is **vital only when you
+specifically want that provider's live-scraped dates**; otherwise use the offline
+`DatesUSFederalHolidays` and skip this.
+
+Install the optional `web` extra (quote the brackets so the shell does not glob them), then
+download the browser binary:
+
+```bash
+pip install "wwdates[web]"   # adds Playwright
+playwright install chromium  # one-time browser download (pip cannot do this)
+```
+
+Without both, constructing/using `DatesUSFederalHolidaysWeb` raises a clear `ImportError` with
+these instructions.
 
 ---
 
-## Basic usage
+## Choosing a provider
+
+Every provider exposes the same calendar-operations surface (see [API Reference](api.md)); they
+differ only in **which** holidays they load.
 
 ```python
-from <package_name>.main import main
-
-main()
+from wwdates.br.anbima import DatesBRAnbima      # ANBIMA national holidays
+from wwdates.br.febraban import DatesBRFebraban  # FEBRABAN bank holidays
+from wwdates.br.b3 import DatesBRB3              # ANBIMA + B3 exchange extras
+from wwdates.us.nasdaq import DatesUSNasdaq      # Nasdaq trading calendar
+from wwdates.us.federal_holidays import DatesUSFederalHolidays  # offline, recommended
+from wwdates.us.federal_holidays_web import DatesUSFederalHolidaysWeb  # live scrape (Playwright)
 ```
+
+You can also import from the country package:
+
+```python
+from wwdates.br import DatesBRAnbima, DatesBRB3, DatesBRFebraban
+from wwdates.us import DatesUSNasdaq, DatesUSFederalHolidays, DatesUSFederalHolidaysWeb
+```
+
+Fetched calendars are cached locally so repeated calls stay fast and offline-friendly; the
+cache controls are documented in the [API Reference](api.md#constructor-parameters) and their
+internals in [Contributing](contributing.md#caching-internals).
 
 ---
 
-## Running from the Makefile
+## Working with business days
 
-```bash
-make start         # runs src/<package_name>/main.py via Poetry
+```python
+from datetime import date
+
+from wwdates.br.b3 import DatesBRB3
+
+cls_cal = DatesBRB3()
+
+cls_cal.is_working_day(date(2024, 12, 25))   # False — Christmas
+cls_cal.is_holiday(date(2024, 12, 25))       # True
+cls_cal.is_weekend(date(2024, 12, 28))       # True — Saturday
+
+# Add three business days, skipping weekends and holidays.
+cls_cal.add_working_days(date(2024, 12, 24), 3)     # -> date(2024, 12, 30)
+
+# Nearest business day on or after (or before) a given date.
+cls_cal.nearest_working_day(date(2024, 12, 25), bool_next=True)
+
+# Count / list business days in a range.
+cls_cal.delta_working_days(date(2024, 12, 1), date(2024, 12, 31))
+cls_cal.working_days_range(date(2024, 12, 1), date(2024, 12, 31))
 ```
+
+`DatesBRB3` here is just an example — the same methods work on every provider
+(`DatesBRAnbima`, `DatesBRFebraban`, `DatesUSNasdaq`, `DatesUSFederalHolidays`,
+`DatesUSFederalHolidaysWeb`); only the
+loaded holiday set differs. See the [API Reference](api.md) for the full list of classes and
+their shared methods.
 
 ---
 
-## Running tests
+## Listing holidays
 
-```bash
-make unit_tests         # unit tests only
-make integration_tests  # integration tests only
-make test_cov           # unit tests + coverage report + badge
+Every provider returns `(name, date)` tuples:
+
+```python
+from wwdates.us.nasdaq import DatesUSNasdaq
+
+for name, day in DatesUSNasdaq().holidays():
+    print(day, name)
 ```
-
----
-
-## Linting and formatting
-
-```bash
-make lint          # ruff check + ruff format + codespell + pydocstyle
-```
-
----
-
-## Publishing to PyPI
-
-Two GitHub Actions workflows handle releases (present when the repo has a GitHub remote):
-
-- **`release_test_pypi.yaml`** — publish to [Test PyPI](https://test.pypi.org) first.
-- **`release_pypi.yaml`** — publish to [PyPI](https://pypi.org) and cut a GitHub release.
-
-Trigger either from the **Actions** tab (`workflow_dispatch`) with the version to release.
-Both gate on the new version being greater than the latest already published, build with
-Poetry, and fall back to `twine` if `poetry publish` is unavailable.
-
-Configure once, in repository settings:
-
-- Secrets `PYPI_TOKEN` and `TEST_PYPI_TOKEN` (API tokens from each index).
-- A GitHub **Environment** named `release`.

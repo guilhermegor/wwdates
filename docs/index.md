@@ -1,6 +1,12 @@
-# **Wwdates**
+# **wwdates** <img src="assets/logo_wwdates_no_description.png" align="right" width="200" style="border-radius: 15px;" alt="wwdates logo">
 
-A minimal Python library with packaging, tests, CI, and linting pre-configured.
+Global calendar system.
+
+`wwdates` fetches official holiday calendars for Brazil (ANBIMA, FEBRABAN, B3) and the United
+States (Nasdaq, Federal Holidays), then layers a rich set of working-day / date helpers on top
+— `is_working_day`, `add_working_days`, `working_days_range`, `delta_working_days`,
+timezone-aware conversions, and more. Fetched calendars are cached locally so repeated calls
+stay fast and offline-friendly.
 
 ---
 
@@ -8,18 +14,49 @@ A minimal Python library with packaging, tests, CI, and linting pre-configured.
 
 | Section | Description |
 |---------|-------------|
-| [Usage](usage.md) | Installation, imports, and usage examples |
-| [API Reference](api.md) | Module-level functions and public interface |
+| [Usage](usage.md) | Installation, choosing a provider, and basic examples |
+| [Examples](examples.md) | Task-oriented recipes (settlement dates, expiry, cross-market) |
+| [API Reference](api.md) | Public providers and every shared calendar operation |
+| [FAQ](faq.md) | Common questions and troubleshooting |
+| [Contributing](contributing.md) | Dev setup, testing, wheel build, PR workflow, releasing |
+| [Changelog](changelog.md) | Per-version release history |
 
 ---
 
 ## Quick start
 
 ```bash
-make init          # bootstrap virtual environment and install pre-commit hooks
-make unit_tests    # run the test suite
-make docs_server   # serve this documentation at http://0.0.0.0:8000
+pip install wwdates
 ```
+
+```python
+from datetime import date
+
+from wwdates.br.b3 import DatesBRB3
+
+cls_cal = DatesBRB3()
+cls_cal.is_working_day(date(2024, 12, 25))          # False — Christmas
+cls_cal.add_working_days(date(2024, 12, 24), 3)     # skips holidays + weekends
+cls_cal.holidays()                                  # [(name, date), ...]
+```
+
+Everything works offline after install. Only the optional `DatesUSFederalHolidaysWeb` (a live
+scrape) needs a browser — enable it with `pip install "wwdates[web]"` then
+`playwright install chromium`. The rest, including the recommended offline
+`DatesUSFederalHolidays`, need neither. See [Usage](usage.md#optional-the-browser-scrape-provider-web-extra).
+
+---
+
+## Providers at a glance
+
+| Country | Import | Source |
+|---------|--------|--------|
+| 🇧🇷 Brazil | `from wwdates.br.anbima import DatesBRAnbima` | ANBIMA national holidays |
+| 🇧🇷 Brazil | `from wwdates.br.febraban import DatesBRFebraban` | FEBRABAN bank holidays |
+| 🇧🇷 Brazil | `from wwdates.br.b3 import DatesBRB3` | ANBIMA + B3 exchange extras |
+| 🇺🇸 USA | `from wwdates.us.nasdaq import DatesUSNasdaq` | Nasdaq trading calendar |
+| 🇺🇸 USA | `from wwdates.us.federal_holidays import DatesUSFederalHolidays` | US federal holidays (offline, recommended) |
+| 🇺🇸 USA | `from wwdates.us.federal_holidays_web import DatesUSFederalHolidaysWeb` | US federal holidays via live scrape |
 
 ---
 
