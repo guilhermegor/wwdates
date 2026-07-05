@@ -7,32 +7,19 @@ on:
         description: 'Version to release (e.g., 1.2.3, 1.2.3a1, 1.2.3b1, 1.2.3rc1)'
         required: true
         type: string
-      tests_passed:
-        description: 'Confirm tests have already passed before releasing'
-        required: true
-        type: choice
-        options:
-          - 'true'
-          - 'false'
-        default: 'true'
 
 env:
   PACKAGE_NAME: "wwdates"
   OWNER: "guilhermegor"
 
 jobs:
-  check_tests:
-    if: ${{ github.event_name == 'push' }}
+  # Hard release gate: always run the full test suite (tests.yaml, full matrix) on the code
+  # being released. The build/publish jobs depend on this, so a release cannot proceed unless
+  # the tests actually pass here — the gate is enforced by the pipeline, never self-attested
+  # via a form input.
+  run_tests:
     uses: ./.github/workflows/tests.yaml
     secrets: inherit
-
-  release:
-    if: ${{ (github.event_name == 'workflow_dispatch' && inputs.tests_passed == 'true') || (github.event_name == 'push' && needs.check_tests.outputs.ready_for_release == 'true') }}
-    needs: [check_tests]
-    runs-on: ubuntu-latest
-    steps:
-      - name: Check Test Status
-        run: echo "Tests passed, proceeding with release"
 
   details:
     runs-on: ubuntu-latest
@@ -99,7 +86,7 @@ jobs:
           fi
 
   setup_and_build:
-    needs: [details, check_pypi]
+    needs: [details, check_pypi, run_tests]
     runs-on: ubuntu-latest
     strategy:
       matrix:
