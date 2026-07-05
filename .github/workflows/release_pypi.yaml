@@ -194,74 +194,20 @@ jobs:
     permissions:
       id-token: write
     steps:
-      - name: Checkout Code
-        uses: actions/checkout@v4
-
-      - name: Set Up Python
-        uses: actions/setup-python@v5
-        with:
-          python-version: "3.12.8"
-
-      - name: Install Poetry
-        uses: snok/install-poetry@v1
-        with:
-          virtualenvs-in-project: true
-          virtualenvs-create: true
-          version: 2.1.2
-
-      - name: Load Cached Virtual Environment
-        id: cached-venv
-        uses: actions/cache@v3
-        with:
-          path: |
-            .venv
-            poetry.lock
-          key: venv-${{ runner.os }}-3.12.8-${{ hashFiles('pyproject.toml') }}
-
-      - name: Install Dependencies
-        if: steps.cached-venv.outputs.cache-hit != 'true'
-        run: |
-          # Temporary pyproject without Windows platform-specific dependencies
-          cp pyproject.toml pyproject.original.toml
-          cat pyproject.original.toml | python -c '
-          import sys, re
-          content = sys.stdin.read()
-          content = re.sub(r".*platform\s*=\s*\"win32\".*", "", content)
-          content = re.sub(r"pywin32\s*=.*\n", "", content)
-          print(content)
-          ' > pyproject.toml
-
-          # Regenerate lock file, if needed
-          if ! poetry check --lock; then
-            echo "Lock file is outdated, regenerating..."
-            rm -f poetry.lock
-            poetry lock --no-cache
-          fi
-
-          # Install all dependencies including dev and docs
-          poetry install --no-interaction --no-root
-
-          # Restore original pyproject.toml
-          mv pyproject.original.toml pyproject.toml
-          poetry env activate
-
       - name: Download Artifacts
         uses: actions/download-artifact@v4
         with:
           name: dist
           path: dist/
 
+      # OIDC trusted publishing — no stored token. The runner mints a short-lived
+      # OpenID Connect token (via `id-token: write`, above) that PyPI verifies against the
+      # trusted publisher registered for this repo/workflow/environment, then issues a
+      # one-time upload token for this run only. Requires a trusted publisher configured on
+      # PyPI for owner=guilhermegor, repo=wwdates, workflow=release_pypi.yaml,
+      # environment=release. No PYPI_TOKEN secret is used.
       - name: Publish to PyPI
-        run: |
-          poetry config pypi-token.pypi "${{ secrets.PYPI_TOKEN }}"
-          poetry publish || {
-            echo "Poetry publish failed, falling back to twine"
-            poetry run twine upload \
-              --verbose \
-              --username "__token__" \
-              --password "${{ secrets.PYPI_TOKEN }}" \
-              dist/*
-          }
+        uses: pypa/gh-action-pypi-publish@release/v1
 
   github_release:
     name: Create GitHub Release

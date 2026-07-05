@@ -182,12 +182,17 @@ Two GitHub Actions workflows handle releases:
 
 Trigger either from the **Actions** tab (`workflow_dispatch`) with the version to release. Both
 gate on the new version being greater than the latest already published, build with Poetry, and
-fall back to `twine` if `poetry publish` is unavailable.
+upload via [OIDC **trusted publishing**](https://docs.pypi.org/trusted-publishers/) — no API
+token is stored in the repo.
 
-Configure once, in repository settings:
+Configure once:
 
-- Secrets `PYPI_TOKEN` and `TEST_PYPI_TOKEN` (API tokens from each index).
-- A GitHub **Environment** named `release`.
+- A GitHub **Environment** named `release` (repository settings).
+- A **trusted publisher** on each index (PyPI and Test PyPI), matching this repo exactly:
+  owner `guilhermegor`, repo `wwdates`, workflow filename `release_pypi.yaml` (and
+  `release_test_pypi.yaml` for Test PyPI), environment `release`. On a first-ever release use a
+  [**pending publisher**](https://docs.pypi.org/trusted-publishers/creating-a-project-through-oidc/)
+  (register it before the project exists). No `PYPI_TOKEN` / `TEST_PYPI_TOKEN` secret is needed.
 
 Documentation is published separately — every push to `main` runs
 `.github/workflows/docs.yaml`, which builds this site and deploys it to GitHub Pages.

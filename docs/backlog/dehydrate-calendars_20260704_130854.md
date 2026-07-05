@@ -57,9 +57,14 @@ Tracked in git but **excluded from the published docs site** (`exclude_docs` in 
 - [ ] **Maintainer setup for the changelog action:** create a fine-grained PAT (Contents: write)
       as the `CHANGELOG_TOKEN` secret and add it to the branch-protection **bypass** list, or the
       auto-changelog push to protected `main` will fail. Documented in `docs/contributing.md`.
-- [ ] **PyPI publishing setup:** decide token vs OIDC trusted-publisher; the pending trusted
-      publisher is configured but the workflow still uses `PYPI_TOKEN`. (See earlier session
-      discussion.)
+- [x] **PyPI publishing switched to OIDC trusted publishing** (own commit for easy rollback).
+      Both release workflows now publish via `pypa/gh-action-pypi-publish@release/v1` under the
+      existing `id-token: write` / `environment: release` — no `PYPI_TOKEN` / `TEST_PYPI_TOKEN`
+      secret. Docs (`contributing.md`, `CLAUDE.md`) updated; blueprintx lesson
+      `pypi-oidc-trusted-publishing` captured. **Maintainer action:** register a trusted publisher
+      on **both** pypi.org and test.pypi.org (owner `guilhermegor`, repo `wwdates`, the workflow
+      filename, environment `release`); use a *pending publisher* for the first release. Roll back
+      this commit to return to token-based publishing if OIDC misbehaves.
 - [x] **Orphan assets deleted:** removed `assets/logo_lorem_ipsum.png` and
       `assets/logo_wwdates_description.png`; only `logo_wwdates_no_description.png` (the sole
       referenced variant) remains.

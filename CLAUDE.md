@@ -69,12 +69,12 @@ Two workflows ship under `.github/workflows/` (present only when a GitHub remote
 - `release_test_pypi.yaml` — publish to **Test PyPI** first (`workflow_dispatch`).
 - `release_pypi.yaml` — publish to **PyPI** and cut a GitHub release.
 
-Both gate on the version being greater than what is already published, build with Poetry,
-and fall back to `twine` if `poetry publish` is unavailable. Configure these repository
-secrets and a GitHub Environment named **`release`**:
-
-- `PYPI_TOKEN` — a PyPI API token.
-- `TEST_PYPI_TOKEN` — a Test PyPI API token.
+Both gate on the version being greater than what is already published, build with Poetry, and
+upload via OIDC **trusted publishing** (`pypa/gh-action-pypi-publish`, `id-token: write`) — no
+API token is stored. Configure a GitHub Environment named **`release`** and a **trusted
+publisher** on each index (PyPI and Test PyPI) matching owner `guilhermegor`, repo `wwdates`, the
+respective workflow filename, and environment `release`. For a first-ever release, register a
+**pending publisher** on the index before the project exists. See `docs/contributing.md`.
 
 ## Extending this template
 
