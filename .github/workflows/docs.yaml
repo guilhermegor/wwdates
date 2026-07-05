@@ -50,6 +50,12 @@ jobs:
       - name: Install Docs Dependencies
         run: poetry install --with docs
 
+      # Regenerate CHANGELOG.md from the commit/tag history so the published Changelog page is
+      # current. The changelog is never committed to main by CI; the site's copy is produced
+      # fresh at build time here (cz derives sections from git tags).
+      - name: Regenerate CHANGELOG.md
+        run: poetry run cz changelog
+
       - name: Build Site (strict)
         run: poetry run mkdocs build --strict
 

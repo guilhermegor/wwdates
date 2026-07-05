@@ -54,13 +54,22 @@ Tracked in git but **excluded from the published docs site** (`exclude_docs` in 
   wheel build). PR **#1** open against `main`.
 
 ## Open / to-do
-- [x] **Changelog moved to release-time regeneration (no PAT, no bypass).** Deleted
+- [x] **Changelog moved off CI-push-to-protected-main (no PAT, no bypass).** Deleted
       `changelog.yaml` (it pushed to protected `main`, forcing a `CHANGELOG_TOKEN` PAT +
       branch-protection bypass — the same long-lived secret just removed from PyPI). `CHANGELOG.md`
-      is now regenerated with `make changelog` on the release branch and merged via the normal PR;
-      CI never pushes to `main`. Docs (`contributing.md`, `changelog.md`), Makefile + tasks.sh
+      is now regenerated from tags by `cz changelog` at **docs-build time** (`docs.yaml`), never
+      committed to `main`; `make changelog` remains for local preview. Docs, Makefile + tasks.sh
       updated; blueprintx lesson `changelog-no-ci-push-to-protected-main` captured. **No maintainer
       setup required.**
+- [x] **Release pipeline hardened: real test gate + tag-driven dynamic versioning.**
+      (1) Dropped the self-attested `tests_passed` input; both release workflows now `needs:` a
+      `run_tests` job (full-matrix `tests.yaml`), so publish is gated on tests actually passing.
+      (2) Version is now the **git tag** via `poetry-dynamic-versioning`: `pyproject` holds a
+      `0.0.0` stub, the release workflow tags `vX.Y.Z` and builds with `python -m build` (Test PyPI
+      uses `POETRY_DYNAMIC_VERSIONING_BYPASS`). Deleted `make bump_version` (now offline-only).
+      Locally verified: tag→`wwdates-9.9.8`, bypass→`9.9.9`, no-tag→dev version; `install_dist_
+      locally` green. Two blueprintx lessons captured (`release-gate-runs-tests-not-attestation`,
+      `versioning-origin-dependent-tag-driven-online`). Split into two revertable commits.
 - [x] **PyPI publishing switched to OIDC trusted publishing** (own commit for easy rollback).
       Both release workflows now publish via `pypa/gh-action-pypi-publish@release/v1` under the
       existing `id-token: write` / `environment: release` — no `PYPI_TOKEN` / `TEST_PYPI_TOKEN`

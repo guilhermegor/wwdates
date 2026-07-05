@@ -5,10 +5,11 @@ Release history for `wwdates`. Entries are generated from
 [commitizen](https://commitizen-tools.github.io/commitizen/), so the version headings below track
 what actually shipped.
 
-**How it updates:** `CHANGELOG.md` is regenerated **at release time** with `make changelog`
-(`cz changelog`) on the release branch, and lands on `main` through the normal pull request — CI
-never pushes to `main`. You never edit it by hand. Regenerate or preview any time with
-`make changelog` (or `bash tasks.sh changelog`).
+**How it updates:** the sections below are generated from the git tags and commit history by
+`cz changelog`. The published page is regenerated **fresh on every docs build**
+(`docs.yaml` runs `cz changelog` before `mkdocs build`), so it always reflects `main` — CI never
+commits `CHANGELOG.md` back to the repo. You never edit it by hand. Regenerate or preview locally
+any time with `make changelog` (or `bash tasks.sh changelog`).
 
 ---
 

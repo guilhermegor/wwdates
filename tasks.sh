@@ -44,21 +44,11 @@ init() {
 	precommit
 }
 
-bump_version() {
-	# LEVEL is any Poetry bump rule (patch|minor|major|premajor|preminor|prepatch|
-	# prerelease) or an explicit version (e.g. 1.4.0); Poetry validates it and fails
-	# loud on a bad value. Accepts LEVEL=<x> (parity with the Makefile) or a positional
-	# argument; defaults to patch.
-	local str_level="${LEVEL:-${1:-patch}}"
-	poetry_exec version "$str_level"
-	git add pyproject.toml
-	echo "Version bumped to $(poetry_exec version -s)"
-}
-
 changelog() {
-	# Regenerate CHANGELOG.md from the conventional-commit history. Run this at release time on the
-	# release branch (after bump_version); the update reaches main through the normal PR — CI never
-	# pushes the changelog to protected main.
+	# Regenerate CHANGELOG.md locally to preview it (cz derives sections from the git tags). There
+	# is no hand-run version bump: the version is the git tag, stamped at build by poetry-dynamic-
+	# versioning, and releases are cut by the CI release workflows. The published site's changelog
+	# is regenerated in docs.yaml; CI never pushes the changelog to protected main.
 	poetry_exec run cz changelog
 	echo "CHANGELOG.md regenerated"
 }
@@ -172,8 +162,11 @@ db_restore() {
 # -------------------
 
 install_dist_locally() {
+	# Uses `python -m build` (a PEP 517 frontend) so poetry-dynamic-versioning stamps the version;
+	# `poetry build` would ignore the backend. The printed __version__ is the local placeholder
+	# (0.0.0) since there is no release tag on the working tree — the real version is tag-derived.
 	rm -rf dist/* build/ ./*.egg-info/
-	poetry_exec build
+	poetry_exec run python -m build
 	poetry_exec install
 	poetry_exec run python -c "from wwdates.br.b3 import DatesBRB3; print('Package import works')"
 	poetry_exec run python -c "import wwdates; print(wwdates.__version__)"
@@ -240,8 +233,7 @@ Virtual Environment
   venv                 Create Poetry venv and install dependencies
   update_venv          Update all Poetry dependencies
   precommit            Install pre-commit hooks (commit-msg + pre-push; skips off a git tree)
-  bump_version         Bump version: LEVEL=<patch|minor|major|pre*|X.Y.Z> (default patch); also accepts a positional arg
-  changelog            Regenerate CHANGELOG.md (run at release time; lands on main via PR)
+  changelog            Regenerate CHANGELOG.md locally to preview (version comes from git tags)
 
 Corporate CA
   get_corporate_ca     Extract a TLS-proxy CA into bin/corporate_ca.pem (corporate networks)
@@ -297,7 +289,6 @@ ensure_env) ensure_env ;;
 venv) venv ;;
 update_venv) update_venv ;;
 precommit) precommit ;;
-bump_version) bump_version "${2:-}" ;;
 changelog) changelog ;;
 get_corporate_ca) get_corporate_ca ;;
 unit_tests) unit_tests ;;

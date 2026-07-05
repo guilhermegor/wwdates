@@ -180,10 +180,19 @@ Two GitHub Actions workflows handle releases:
 - **`release_test_pypi.yaml`** — publish to [Test PyPI](https://test.pypi.org) first.
 - **`release_pypi.yaml`** — publish to [PyPI](https://pypi.org) and cut a GitHub release.
 
-Trigger either from the **Actions** tab (`workflow_dispatch`) with the version to release. Both
-gate on the new version being greater than the latest already published, build with Poetry, and
-upload via [OIDC **trusted publishing**](https://docs.pypi.org/trusted-publishers/) — no API
-token is stored in the repo.
+**There is no manual version bump.** The version is the **git tag** — `pyproject.toml` holds a
+`0.0.0` placeholder and [poetry-dynamic-versioning](https://github.com/mtkennerly/poetry-dynamic-versioning)
+stamps the real version at build time. To release, trigger the workflow from the **Actions** tab
+(`workflow_dispatch`) with the version (e.g. `0.2.0`). The pipeline then:
+
+1. **Runs the full test suite** (`tests.yaml`, full matrix) as a hard gate — publishing is
+   blocked unless tests pass on exactly this commit.
+2. Checks the version is greater than what is already published.
+3. Tags the commit `v0.2.0`, builds with `python -m build` (dynamic versioning stamps `0.2.0`),
+   and uploads via [OIDC **trusted publishing**](https://docs.pypi.org/trusted-publishers/) — no
+   API token stored.
+4. Cuts a GitHub release for the tag. (Test PyPI builds the same version via
+   `POETRY_DYNAMIC_VERSIONING_BYPASS` without creating a tag.)
 
 Configure once:
 
@@ -199,16 +208,9 @@ Documentation is published separately — every push to `main` runs
 
 ## Changelog (maintainers)
 
-`CHANGELOG.md` is regenerated **at release time**, on the release branch, and lands on `main`
-through the normal pull request — never pushed to `main` by CI. This keeps branch protection
-intact and needs **no stored secret** (no PAT, no bypass list). When cutting a release:
-
-```bash
-make bump_version LEVEL=minor   # or patch | major | X.Y.Z
-make changelog                  # cz changelog -> regenerates CHANGELOG.md from the commit history
-git commit -am "chore: release vX.Y.Z"
-# open a PR and merge it, then trigger the release workflow from the Actions tab
-```
-
-`cz changelog` derives everything from your conventional-commit history, so the only discipline
-is writing `feat:` / `fix:` / etc. commit messages. Preview any time with `make changelog`.
+`CHANGELOG.md` is generated from the conventional-commit history and the git tags, **never
+committed to `main` by CI**. The published site's Changelog page is regenerated fresh on every
+docs build (`docs.yaml` runs `cz changelog` before `mkdocs build`), and each release also gets
+GitHub-generated release notes. This keeps branch protection intact and needs **no stored
+secret** (no PAT, no bypass). The only discipline is writing `feat:` / `fix:` / etc. commit
+messages; preview the changelog locally any time with `make changelog`.

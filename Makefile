@@ -7,7 +7,7 @@ POETRY := bash bin/poetry_exec.sh
 # -------------------
 # VIRTUAL ENVIRONMENT
 # -------------------
-.PHONY: init ensure_env venv update_venv precommit bump_version changelog
+.PHONY: init ensure_env venv update_venv precommit changelog
 
 init: ensure_env venv precommit
 
@@ -28,19 +28,10 @@ update_venv:
 precommit:
 	@bash bin/precommit.sh
 
-# Bump the project version. LEVEL is any Poetry bump rule
-# (patch|minor|major|premajor|preminor|prepatch|prerelease) or an explicit version
-# (e.g. 1.4.0); Poetry validates it and fails loud on a bad value. Defaults to patch.
-# Usage: make bump_version LEVEL=minor
-LEVEL ?= patch
-bump_version:
-	@$(POETRY) version $(LEVEL)
-	@git add pyproject.toml
-	@echo "Version bumped to $$($(POETRY) version -s)"
-
-# Regenerate CHANGELOG.md from the conventional-commit history. Run this at release time on the
-# release branch (after bump_version); the update reaches main through the normal PR — CI never
-# pushes the changelog to protected main.
+# Regenerate CHANGELOG.md locally to preview it (cz derives sections from the git tags). There is
+# no hand-run version bump: the version is the git tag, stamped at build by poetry-dynamic-
+# versioning, and releases are cut by the CI release workflows. The published site's changelog is
+# regenerated in docs.yaml; CI never pushes the changelog to protected main.
 changelog:
 	@$(POETRY) run cz changelog
 	@echo "CHANGELOG.md regenerated"
@@ -157,9 +148,12 @@ ship:
 
 # Build the wheel/sdist, install it, and smoke-import the package — catches packaging
 # mistakes (missing __init__, unshipped _internal subpackages) that source-tree tests miss.
+# Uses `python -m build` (a PEP 517 frontend) so poetry-dynamic-versioning stamps the version;
+# `poetry build` would ignore the backend. The printed __version__ is the local placeholder
+# (0.0.0) since there is no release tag on the working tree — the real version is tag-derived.
 install_dist_locally:
 	@rm -rf dist/* build/ *.egg-info/
-	@$(POETRY) build
+	@$(POETRY) run python -m build
 	@$(POETRY) install
 	@$(POETRY) run python -c "from wwdates.br.b3 import DatesBRB3; print('Package import works')"
 	@$(POETRY) run python -c "import wwdates; print(wwdates.__version__)"
@@ -188,8 +182,7 @@ help:
 	@echo "  venv                 Create Poetry venv and install dependencies"
 	@echo "  update_venv          Update all Poetry dependencies"
 	@echo "  precommit            Install pre-commit hooks (commit-msg + pre-push; skips off a git tree)"
-	@echo "  bump_version LEVEL=<x>  Bump version (patch|minor|major|pre*|X.Y.Z; default patch)"
-	@echo "  changelog            Regenerate CHANGELOG.md (run at release time; lands on main via PR)"
+	@echo "  changelog            Regenerate CHANGELOG.md locally to preview (version comes from git tags)"
 	@echo ""
 	@echo "Corporate CA"
 	@echo "  get_corporate_ca     Extract a TLS-proxy CA into bin/corporate_ca.pem (corporate networks)"

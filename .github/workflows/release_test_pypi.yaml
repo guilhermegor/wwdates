@@ -160,15 +160,12 @@ jobs:
 
       - name: Build Package
         env:
-          NEW_VERSION: ${{ needs.details.outputs.new_version }}
+          # Test PyPI is a dry run, so stamp the requested version directly via
+          # POETRY_DYNAMIC_VERSIONING_BYPASS instead of creating a real release tag.
+          POETRY_DYNAMIC_VERSIONING_BYPASS: ${{ needs.details.outputs.new_version }}
         run: |
-          poetry version "$NEW_VERSION"
-          if [ ! -d "dist" ] || [ ! -d "dist/${{ env.PACKAGE_NAME }}-$NEW_VERSION" ]; then
-            echo "Building package for version $NEW_VERSION"
-            poetry build
-          else
-            echo "Package version already built, skipping build step"
-          fi
+          python -m pip install --upgrade build
+          python -m build
 
       - name: Upload Artifacts
         uses: actions/upload-artifact@v4

@@ -1,6 +1,9 @@
 [tool.poetry]
 name = "wwdates"
-version = "0.1.0"
+# Placeholder only — the real version is derived from the git tag at build time by
+# poetry-dynamic-versioning (see [tool.poetry-dynamic-versioning]). Do not bump this by hand;
+# releases are cut by tagging via the CI release workflows.
+version = "0.0.0"
 description = "Global calendar system. Python package."
 authors = ["guilhermegor"]
 readme = "README.md"
@@ -49,8 +52,9 @@ playwright = { version = "^1.61.0", optional = true }
 web = ["playwright"]
 
 [tool.commitizen]
-# Conventional-commit driven changelog. `make bump_version` regenerates CHANGELOG.md from the
-# commit history; the version is read from [tool.poetry] so there is a single source of truth.
+# Conventional-commit driven changelog. The version comes from the git tag
+# (poetry-dynamic-versioning); `cz changelog` groups commits by tag. Releases are cut by the CI
+# release workflows (tag -> build -> publish), not by a hand-run bump.
 name = "cz_conventional_commits"
 version_provider = "poetry"
 tag_format = "v$version"
@@ -90,6 +94,16 @@ mkdocs = ">=1.6.0"
 mkdocs-material = ">=9.5.0"
 pymdown-extensions = ">=10.0"
 
+[tool.poetry-dynamic-versioning]
+# The published version is derived from the latest git tag matching `v$version` (e.g. v0.2.0).
+# On an exact tag the build is clean (0.2.0); off-tag builds get a PEP 440 dev version. CI stamps
+# a release by tagging the commit before build; Test PyPI passes POETRY_DYNAMIC_VERSIONING_BYPASS
+# to build a specific version without creating a tag. Requires `python -m build` (a PEP 517
+# frontend) rather than `poetry build`, so the backend below is honoured.
+enable = true
+vcs = "git"
+style = "pep440"
+
 [build-system]
-requires = ["poetry-core>=1.7.0"]
-build-backend = "poetry.core.masonry.api"
+requires = ["poetry-core>=1.7.0", "poetry-dynamic-versioning>=1.4.0,<2.0.0"]
+build-backend = "poetry_dynamic_versioning.backend"
