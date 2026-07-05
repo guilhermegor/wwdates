@@ -124,14 +124,21 @@ workflow and CI gate.
 
 ## 👨‍💻 Authors
 
-- guilhermegor — [GitHub](https://github.com/guilhermegor)
-
-## 📜 License
-
-This project is licensed under the **MIT** License — see [`LICENSE`](LICENSE) for details.
+**Guilherme Rodrigues**  
+[![GitHub](https://img.shields.io/badge/GitHub-guilhermegor-181717?style=flat&logo=github)](https://github.com/guilhermegor)  
+[![LinkedIn](https://img.shields.io/badge/LinkedIn-Guilherme_Rodrigues-0077B5?style=flat&logo=linkedin)](https://www.linkedin.com/in/guilhermegor/)
 
 ## 🔗 Useful Links
 
 - [Documentation](https://guilhermegor.github.io/wwdates/)
 - [GitHub Repository](https://github.com/guilhermegor/wwdates)
 - [Issue Tracker](https://github.com/guilhermegor/wwdates/issues)
+
+## 🤝 Contributing
+
+Issues and PRs are welcome. Please read [`CONTRIBUTING.md`](CONTRIBUTING.md) first for dev setup,
+tests, the branch/PR workflow, and the CI gate.
+
+## 📜 License
+
+This project is licensed under the **MIT** License — see [`LICENSE`](LICENSE) for details.

@@ -1,31 +1,38 @@
 name: Docs - GitHub Pages Deployment
 
-# Build the MkDocs site with Poetry (the project toolchain) and deploy it to the
-# gh-pages branch on every push to the default branch. Adapted from the BlueprintX
-# reference docs workflow; the canonical `mkdocs gh-deploy --force` replaces the
-# rsync-into-gh-pages dance since this project hosts nothing else on gh-pages.
+# Build the MkDocs site and deploy it to GitHub Pages via the official Actions deployment
+# (configure-pages -> upload-pages-artifact -> deploy-pages). `configure-pages` with
+# `enablement: true` self-enables Pages on the first run using the built-in GITHUB_TOKEN
+# (scoped `pages: write`) — so there is NO manual "enable Pages in Settings" step (the classic
+# first-publish 404), NO gh-pages branch, and NO stored PAT. Runs on every push to the default
+# branch, so every merged PR redeploys the docs.
 on:
   push:
     branches:
       - main
       - master
 
+# GITHUB_TOKEN scopes: read the repo, write the Pages deployment, mint the OIDC token
+# deploy-pages verifies. This is the sanctioned path that lets CI enable/deploy Pages without a PAT.
 permissions:
-  contents: write
+  contents: read
+  pages: write
+  id-token: write
+
+# One deployment at a time; don't cancel an in-progress deploy (GitHub's recommended Pages setup).
+concurrency:
+  group: pages
+  cancel-in-progress: false
 
 jobs:
-  deploy_docs:
+  build:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout Code
         uses: actions/checkout@v4
         with:
+          # Full history + tags so `cz changelog` and the version badge can read them.
           fetch-depth: 0
-
-      - name: Configure Git Credentials
-        run: |
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
 
       - name: Set Up Python
         uses: actions/setup-python@v5
@@ -56,8 +63,29 @@ jobs:
       - name: Regenerate CHANGELOG.md
         run: poetry run cz changelog
 
+      # Enables GitHub Pages for the repo on the first run (enablement: true) and exports the
+      # base path. No-op once Pages is already enabled as build_type=workflow.
+      - name: Configure Pages
+        uses: actions/configure-pages@v5
+        with:
+          enablement: true
+
       - name: Build Site (strict)
         run: poetry run mkdocs build --strict
 
-      - name: Deploy to gh-pages
-        run: poetry run mkdocs gh-deploy --force --no-history
+      - name: Upload Pages Artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          # MkDocs' default output directory.
+          path: site
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4
