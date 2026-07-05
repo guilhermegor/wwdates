@@ -87,5 +87,12 @@ Tracked in git but **excluded from the published docs site** (`exclude_docs` in 
       tag. `install_dist_locally` (Makefile + tasks.sh) reports the built wheel's real version
       (e.g. `wwdates-0.0.0.post15.dev0+6d445f3`) rather than the editable `0.0.0`. `docs_server`
       needed no change (it feeds through the same hook). Lesson updated with the ripple note.
-- [ ] **First real runs untested on the remote** (need the branch merged): `docs.yaml`
-      (gh-pages deploy) and the OIDC `release_*` workflows (need the trusted publishers registered).
+- [x] **`docs.yaml` proven on the remote:** ran green and the site is **live** at
+      https://guilhermegor.github.io/wwdates/ (HTTP 200). Root cause of the initial 404 was Pages
+      never being enabled (`gh-deploy` publishes the branch but can't enable serving) — fixed by
+      enabling Pages this session. (Being migrated to a self-enabling Actions deploy in PR #5.)
+- [ ] **OIDC `release_*` workflows still unproven on the remote:** Test PyPI failed
+      `invalid-publisher` (publisher env was `release`, workflow now expects per-index
+      `release_test_pypi`); PyPI's publisher must likewise use `release_pypi`. `release_pypi` also
+      needs PR #3 merged (idempotent BYPASS build — the `v0.1.0` tag collision fix). No publish has
+      succeeded yet; register/correct the trusted publishers, then dispatch.
