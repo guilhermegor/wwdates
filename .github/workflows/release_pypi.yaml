@@ -94,9 +94,6 @@ jobs:
     steps:
       - name: Checkout Code
         uses: actions/checkout@v4
-        with:
-          # Full history + tags so poetry-dynamic-versioning can derive the version from the tag.
-          fetch-depth: 0
 
       - name: Set Up Python ${{ matrix.python-version }}
         uses: actions/setup-python@v5
@@ -161,14 +158,13 @@ jobs:
 
       - name: Build Package
         env:
-          TAG_NAME: ${{ needs.details.outputs.tag_name }}
+          # Stamp the requested version directly via POETRY_DYNAMIC_VERSIONING_BYPASS instead of
+          # creating a local git tag. This is idempotent on re-runs: a prior run's github_release
+          # job may already have created the v<version> tag on the remote, which a tag-based build
+          # (with fetch-depth: 0) would collide with — `fatal: tag already exists`. The authoritative
+          # release tag is still created by the github_release job after a successful publish.
+          POETRY_DYNAMIC_VERSIONING_BYPASS: ${{ needs.details.outputs.new_version }}
         run: |
-          # poetry-dynamic-versioning derives the version from a git tag. Tag this commit locally
-          # with the requested version so the wheel/sdist are stamped with exactly that version;
-          # the authoritative tag is pushed by the GitHub Release job after a successful publish.
-          git config user.email "actions@github.com"
-          git config user.name "github-actions"
-          git tag "$TAG_NAME"
           python -m pip install --upgrade build
           python -m build
 
