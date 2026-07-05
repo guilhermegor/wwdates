@@ -148,15 +148,16 @@ ship:
 
 # Build the wheel/sdist, install it, and smoke-import the package — catches packaging
 # mistakes (missing __init__, unshipped _internal subpackages) that source-tree tests miss.
-# Uses `python -m build` (a PEP 517 frontend) so poetry-dynamic-versioning stamps the version;
-# `poetry build` would ignore the backend. The printed __version__ is the local placeholder
-# (0.0.0) since there is no release tag on the working tree — the real version is tag-derived.
+# Uses `python -m build` (a PEP 517 frontend) so poetry-dynamic-versioning stamps the real
+# version into the wheel; `poetry build` would ignore the backend. The editable install resolves
+# __version__ to the 0.0.0 placeholder (expected), so we report the built wheel's actual
+# tag-derived version rather than that placeholder.
 install_dist_locally:
 	@rm -rf dist/* build/ *.egg-info/
 	@$(POETRY) run python -m build
 	@$(POETRY) install
-	@$(POETRY) run python -c "from wwdates.br.b3 import DatesBRB3; print('Package import works')"
-	@$(POETRY) run python -c "import wwdates; print(wwdates.__version__)"
+	@$(POETRY) run python -c "from wwdates.br.b3 import DatesBRB3; import wwdates; assert wwdates.__version__; print('Package import works; __version__ resolves')"
+	@$(POETRY) run python -c "import pathlib; print('Built wheel:', sorted(pathlib.Path('dist').glob('*.whl'))[-1].name)"
 
 # -------------------
 # DOCS

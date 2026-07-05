@@ -162,14 +162,15 @@ db_restore() {
 # -------------------
 
 install_dist_locally() {
-	# Uses `python -m build` (a PEP 517 frontend) so poetry-dynamic-versioning stamps the version;
-	# `poetry build` would ignore the backend. The printed __version__ is the local placeholder
-	# (0.0.0) since there is no release tag on the working tree — the real version is tag-derived.
+	# Uses `python -m build` (a PEP 517 frontend) so poetry-dynamic-versioning stamps the real
+	# version into the wheel; `poetry build` would ignore the backend. The editable install
+	# resolves __version__ to the 0.0.0 placeholder (expected), so we report the built wheel's
+	# actual tag-derived version rather than that placeholder.
 	rm -rf dist/* build/ ./*.egg-info/
 	poetry_exec run python -m build
 	poetry_exec install
-	poetry_exec run python -c "from wwdates.br.b3 import DatesBRB3; print('Package import works')"
-	poetry_exec run python -c "import wwdates; print(wwdates.__version__)"
+	poetry_exec run python -c "from wwdates.br.b3 import DatesBRB3; import wwdates; assert wwdates.__version__; print('Package import works; __version__ resolves')"
+	poetry_exec run python -c "import pathlib; print('Built wheel:', sorted(pathlib.Path('dist').glob('*.whl'))[-1].name)"
 }
 
 # -------------------

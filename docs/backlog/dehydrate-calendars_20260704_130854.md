@@ -81,5 +81,11 @@ Tracked in git but **excluded from the published docs site** (`exclude_docs` in 
 - [x] **Orphan assets deleted:** removed `assets/logo_lorem_ipsum.png` and
       `assets/logo_wwdates_description.png`; only `logo_wwdates_no_description.png` (the sole
       referenced variant) remains.
+- [x] **Placeholder-version ripple fixed** in the docs badge + local smoke. `mkdocs_hooks.py` now
+      derives the masthead version from `git describe --tags --always` (falls back to pyproject
+      then `?`) instead of the `0.0.0` stub — verified badge renders `v6d445f3` now / `v0.2.0` on a
+      tag. `install_dist_locally` (Makefile + tasks.sh) reports the built wheel's real version
+      (e.g. `wwdates-0.0.0.post15.dev0+6d445f3`) rather than the editable `0.0.0`. `docs_server`
+      needed no change (it feeds through the same hook). Lesson updated with the ripple note.
 - [ ] **First real runs untested on the remote** (need the branch merged): `docs.yaml`
       (gh-pages deploy) and the OIDC `release_*` workflows (need the trusted publishers registered).
