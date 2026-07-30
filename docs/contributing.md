@@ -74,6 +74,34 @@ make test_cov           # unit tests + coverage report + badge
 Unit tests mock all network I/O at the boundary (`requests`, Playwright) — they never touch a
 real network, DB, or filesystem.
 
+### The network guard
+
+This is **enforced, not merely expected**. `tests/conftest.py` installs an autouse fixture that
+swaps the socket connection primitives (`socket.socket.connect` / `connect_ex` and
+`socket.create_connection`), so a test that reaches the wire fails immediately:
+
+```
+NetworkAccessError: A test tried to reach the network (...). Mock the I/O boundary
+(the download / HTTP seam) instead, or mark the test @pytest.mark.allow_network if
+it truly must hit the wire.
+```
+
+If you see this, the fix is to mock the seam your code calls — `requests.get` for the ANBIMA /
+FEBRABAN readers, the Playwright page for the US federal-holidays provider — not to work around
+the guard. A test that genuinely must hit the network opts out explicitly:
+
+```python
+@pytest.mark.allow_network
+def test_something_that_really_needs_the_wire() -> None: ...
+```
+
+Why it is a guard and not a guideline: `wwdates` scrapes three third-party portals (ANBIMA, B3,
+FEBRABAN). In CI an un-mocked fetch runs on every push from many IPs, so the cost of forgetting is
+not a red test — it is getting rate-limited or IP-banned from the very source the library depends
+on. Note that DNS resolution (`socket.getaddrinfo`) is deliberately **not** blocked: resolving an
+address neither exfiltrates data nor triggers a ban, and blocking it would break code that
+classifies an address before deciding whether to connect.
+
 ---
 
 ## Linting and formatting
