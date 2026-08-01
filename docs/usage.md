@@ -47,13 +47,25 @@ these instructions.
 Every provider exposes the same calendar-operations surface (see [API Reference](api.md)); they
 differ only in **which** holidays they load.
 
+Most sources come in two flavours: an **offline** class (the default) and a `*Web` class that
+reads the publisher's live page. Prefer the offline one unless you specifically need the
+publisher's own rendering — it needs no network, no cache, and no warm-up.
+
 ```python
-from wwdates.br.anbima import DatesBRAnbima      # ANBIMA national holidays
-from wwdates.br.febraban import DatesBRFebraban  # FEBRABAN bank holidays
-from wwdates.br.b3 import DatesBRB3              # ANBIMA + B3 exchange extras
+from wwdates.br.anbima import DatesBRAnbima      # ANBIMA national holidays (offline)
+from wwdates.br.febraban import DatesBRFebraban  # FEBRABAN bank holidays (offline)
+from wwdates.br.b3 import DatesBRB3              # national + B3 exchange extras (offline)
 from wwdates.us.nasdaq import DatesUSNasdaq      # Nasdaq trading calendar
 from wwdates.us.federal_holidays import DatesUSFederalHolidays  # offline, recommended
 from wwdates.us.federal_holidays_web import DatesUSFederalHolidaysWeb  # live scrape (Playwright)
+```
+
+The live-fetch variants:
+
+```python
+from wwdates.br.anbima_web import DatesBRAnbimaWeb      # ANBIMA's published workbook
+from wwdates.br.febraban_web import DatesBRFebrabanWeb  # FEBRABAN's JSON endpoint
+from wwdates.br.b3_web import DatesBRB3Web              # B3's trading calendar (2021–2026)
 ```
 
 You can also import from the country package:
@@ -63,8 +75,9 @@ from wwdates.br import DatesBRAnbima, DatesBRB3, DatesBRFebraban
 from wwdates.us import DatesUSNasdaq, DatesUSFederalHolidays, DatesUSFederalHolidaysWeb
 ```
 
-Fetched calendars are cached locally so repeated calls stay fast and offline-friendly; the
-cache controls are documented in the [API Reference](api.md#constructor-parameters) and their
+The offline providers compute their holidays locally, so there is nothing to cache. Calendars
+fetched by the `*Web` providers are cached locally so repeated calls stay fast; the cache
+controls are documented in the [API Reference](api.md#constructor-parameters) and their
 internals in [Contributing](contributing.md#caching-internals).
 
 ---

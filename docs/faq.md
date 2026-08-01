@@ -67,12 +67,21 @@ rm -rf ~/.cache/wwdates_calendar_cache
 Remove-Item -Recurse -Force "$env:APPDATA\wwdates_calendar_cache"
 ```
 
-Or skip disk entirely by constructing a provider with `bool_persist_cache=False`:
+Or skip the cache entirely by using an **offline** provider — it computes its holidays
+locally, so there is nothing to fetch or store:
 
 ```python
 from wwdates.br.b3 import DatesBRB3
 
-cls_cal = DatesBRB3(bool_persist_cache=False)   # in-memory only
+cls_cal = DatesBRB3()   # no network, no cache
+```
+
+For the `*Web` providers, `bool_persist_cache=False` keeps the cache in memory only:
+
+```python
+from wwdates.br.b3_web import DatesBRB3Web
+
+cls_cal = DatesBRB3Web(bool_persist_cache=False)   # in-memory only
 ```
 
 Point the cache elsewhere with `path_cache_dir="/some/path"`. See
@@ -82,12 +91,16 @@ Point the cache elsewhere with `path_cache_dir="/some/path"`. See
 
 ## A holiday looks stale / I want fresh data now
 
-The cache re-fetches once it is older than `int_days_cache_expiration` days (default `1`).
-Force an immediate refresh by lowering it, clearing the cache directory, or disabling reuse:
+Only the `*Web` providers cache. The cache re-fetches once it is older than
+`int_days_cache_expiration` days (default `1`); force an immediate refresh by lowering it,
+clearing the cache directory, or disabling reuse:
 
 ```python
-DatesBRAnbima(int_days_cache_expiration=0)   # always re-fetch
+DatesBRAnbimaWeb(int_days_cache_expiration=0)   # always re-fetch
 ```
+
+The offline providers never go stale in this sense — they recompute from statutory rules on
+every call.
 
 ---
 
@@ -105,8 +118,9 @@ pip show tzdata
 
 ## Which provider should I use for trading-day logic?
 
-- **Brazilian exchange (B3):** `DatesBRB3` — ANBIMA national holidays plus B3 non-trading
-  days (optionally Christmas Eve).
+- **Brazilian exchange (B3):** `DatesBRB3` — national holidays plus B3 non-trading days
+  (optionally Christmas Eve). `DatesBRB3Web` scrapes B3's own calendar, but only covers the
+  years B3 publishes (2021–2026 today).
 - **Brazilian banking / settlement:** `DatesBRFebraban`.
 - **US market:** `DatesUSNasdaq` (market closures) — not `DatesUSFederalHolidays`, which is
   the civil federal-holiday calendar.

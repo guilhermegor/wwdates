@@ -119,13 +119,15 @@ docstrings). Docstring parameter/return types **must match** the type hints text
 ## Caching internals
 
 Fetched calendars are cached to disk so repeated runs avoid re-downloading. The cache lives at
-`~/.cache/wwdates_calendar_cache/` (or `%APPDATA%\wwdates_calendar_cache` on Windows). Every
-provider accepts the same cache controls (also documented in the [API Reference](api.md)):
+`~/.cache/wwdates_calendar_cache/` (or `%APPDATA%\wwdates_calendar_cache` on Windows). Only the
+**`*Web`** providers cache — the offline ones compute locally and have no cache parameters at
+all. Every `*Web` provider accepts the same controls (also documented in the
+[API Reference](api.md)):
 
 ```python
-from wwdates.br.b3 import DatesBRB3
+from wwdates.br.b3_web import DatesBRB3Web
 
-cls_cal = DatesBRB3(
+cls_cal = DatesBRB3Web(
     bool_persist_cache=True,        # write cache to disk
     bool_reuse_cache=True,          # reuse in-memory cache within a run
     int_days_cache_expiration=1,    # re-fetch after N days

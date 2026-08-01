@@ -137,13 +137,16 @@ class CacheManager(metaclass=TypeChecker):
 		return path_resolved
 
 	@staticmethod
-	def cache_df(key: str) -> Callable:
+	def cache_df(key: str | Callable) -> Callable:
 		"""Decorate a function to cache its output as a DataFrame.
 
 		Parameters
 		----------
-		key : str
-			Key to use for caching
+		key : str | Callable
+			Key to use for caching, either a literal string or a callable taking the
+			decorated method's instance — use the callable form whenever the cached frame
+			depends on constructor arguments, so two differently-configured instances do
+			not share one entry.
 
 		Returns
 		-------

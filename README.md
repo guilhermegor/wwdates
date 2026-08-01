@@ -26,11 +26,17 @@ offline-friendly.
 One class per calendar source; all share the same date-operations surface — they differ only in
 **which** holidays they load.
 
+Most sources come in two flavours: an **offline** class (the default — no network, no cache) and
+a `*Web` class that reads the publisher's live page.
+
 | Provider                    | Import                            | Holidays                                      |
 | --------------------------- | --------------------------------- | --------------------------------------------- |
-| `DatesBRAnbima`             | `wwdates.br.anbima`               | 🇧🇷 ANBIMA national holidays                   |
-| `DatesBRFebraban`           | `wwdates.br.febraban`             | 🇧🇷 FEBRABAN bank holidays                     |
-| `DatesBRB3`                 | `wwdates.br.b3`                   | 🇧🇷 ANBIMA + B3 exchange non-trading days      |
+| `DatesBRAnbima`             | `wwdates.br.anbima`               | 🇧🇷 ANBIMA national holidays (offline, recommended) |
+| `DatesBRAnbimaWeb`          | `wwdates.br.anbima_web`           | 🇧🇷 The same set, fetched live from ANBIMA      |
+| `DatesBRFebraban`           | `wwdates.br.febraban`             | 🇧🇷 FEBRABAN bank holidays (offline, recommended) |
+| `DatesBRFebrabanWeb`        | `wwdates.br.febraban_web`         | 🇧🇷 The same set, fetched live from FEBRABAN    |
+| `DatesBRB3`                 | `wwdates.br.b3`                   | 🇧🇷 National + B3 exchange non-trading days (offline, recommended) |
+| `DatesBRB3Web`              | `wwdates.br.b3_web`               | 🇧🇷 Scraped from B3's trading calendar (2021–2026 only) |
 | `DatesUSNasdaq`             | `wwdates.us.nasdaq`               | 🇺🇸 Nasdaq market closures                     |
 | `DatesUSFederalHolidays`    | `wwdates.us.federal_holidays`     | 🇺🇸 US federal holidays (offline, recommended) |
 | `DatesUSFederalHolidaysWeb` | `wwdates.us.federal_holidays_web` | 🇺🇸 US federal holidays via live scrape        |
