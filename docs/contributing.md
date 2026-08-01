@@ -213,12 +213,12 @@ Two GitHub Actions workflows handle releases:
 **There is no manual version bump.** The version is the **git tag** — `pyproject.toml` holds a
 `0.0.0` placeholder and [poetry-dynamic-versioning](https://github.com/mtkennerly/poetry-dynamic-versioning)
 stamps the real version at build time. To release, trigger the workflow from the **Actions** tab
-(`workflow_dispatch`) with the version (e.g. `0.2.0`). The pipeline then:
+(`workflow_dispatch`) with the version (e.g. `1.1.0`). The pipeline then:
 
 1. **Runs the full test suite** (`tests.yaml`, full matrix) as a hard gate — publishing is
    blocked unless tests pass on exactly this commit.
 2. Checks the version is greater than what is already published.
-3. Tags the commit `v0.2.0`, builds with `python -m build` (dynamic versioning stamps `0.2.0`),
+3. Tags the commit `v1.1.0`, builds with `python -m build` (dynamic versioning stamps `1.1.0`),
    and uploads via [OIDC **trusted publishing**](https://docs.pypi.org/trusted-publishers/) — no
    API token stored.
 4. Cuts a GitHub release for the tag. (Test PyPI builds the same version via
