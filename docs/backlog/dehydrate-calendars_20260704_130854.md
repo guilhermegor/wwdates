@@ -91,6 +91,34 @@ Tracked in git but **excluded from the published docs site** (`exclude_docs` in 
       https://guilhermegor.github.io/wwdates/ (HTTP 200). Root cause of the initial 404 was Pages
       never being enabled (`gh-deploy` publishes the branch but can't enable serving) — fixed by
       enabling Pages this session. (Being migrated to a self-enabling Actions deploy in PR #5.)
+- [x] **BR calendars are offline-first (issue #7), and `DatesBRB3Web` now really scrapes B3.**
+      All three BR providers gained the two-class shape the US side already used: offline class
+      = default, `*Web` class = the publisher's live page. **The offline source is
+      `holidays.B3`, not `holidays.Brazil`** — the issue proposed the latter, but it is the
+      statutory-only set and omits Carnaval (Mon+Tue) and Corpus Christi, so it would have
+      silently marked Carnaval a working day. Equivalence was verified **before** switching the
+      default: over ANBIMA's full published span (2001–2099) the offline set and the fetched
+      workbook have an **empty symmetric difference**; FEBRABAN matches too (checked live for
+      2025–2026 — the years its endpoint serves). B3 = that set plus the last working day of
+      each year, computed locally.
+      **`DatesBRB3Web` was rewritten** (per review: it fetched ANBIMA, never B3) to scrape B3's
+      own trading calendar. That page is an event feed, so closures are identified by B3's own
+      wording (`"não haverá negociação"`), never by event name — US holidays listed for
+      reference, `Câmara de Câmbio` notes and reduced-hours sessions all correctly stay working
+      days. It reconciles exactly against the offline class: every offline-only date is a
+      weekend (B3 omits those — no session to cancel), and the only scrape-only dates are 2021's
+      São Paulo municipal/state holidays, which B3 stopped observing afterwards.
+      **Two latent cache bugs fixed at the root:** `cache_df` keys ignored the constructor args
+      that change the frame, so `DatesBRB3Web(bool_add_christmas_eve=True)` was served the
+      no-Christmas-Eve cache and two `DatesBRFebrabanWeb` instances with different year ranges
+      collided. The decorator already supported callable keys — only its `key: str` annotation
+      blocked them. Also removed two stale `type: ignore[override]` comments that mypy had been
+      flagging on `main`.
+- [ ] **Decide `bool_add_christmas_eve`'s default.** B3's own page publishes 24 December as a
+      genuine closure ("não haverá negociação") in every year it falls on a weekday (2021, 2024,
+      2025, 2026), which means the offline class's `bool_add_christmas_eve=False` default
+      disagrees with the exchange. Left unchanged — flipping it is a behaviour change beyond
+      issue #7's scope — but it is now evidence-backed, not a matter of taste.
 - [ ] **OIDC `release_*` workflows still unproven on the remote:** Test PyPI failed
       `invalid-publisher` (publisher env was `release`, workflow now expects per-index
       `release_test_pypi`); PyPI's publisher must likewise use `release_pypi`. `release_pypi` also

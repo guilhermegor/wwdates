@@ -51,9 +51,12 @@ scrape) needs a browser — enable it with `pip install "wwdates[web]"` then
 
 | Country | Import | Source |
 |---------|--------|--------|
-| 🇧🇷 Brazil | `from wwdates.br.anbima import DatesBRAnbima` | ANBIMA national holidays |
-| 🇧🇷 Brazil | `from wwdates.br.febraban import DatesBRFebraban` | FEBRABAN bank holidays |
-| 🇧🇷 Brazil | `from wwdates.br.b3 import DatesBRB3` | ANBIMA + B3 exchange extras |
+| 🇧🇷 Brazil | `from wwdates.br.anbima import DatesBRAnbima` | ANBIMA national holidays (offline, recommended) |
+| 🇧🇷 Brazil | `from wwdates.br.anbima_web import DatesBRAnbimaWeb` | The same set, fetched live from ANBIMA |
+| 🇧🇷 Brazil | `from wwdates.br.febraban import DatesBRFebraban` | FEBRABAN bank holidays (offline, recommended) |
+| 🇧🇷 Brazil | `from wwdates.br.febraban_web import DatesBRFebrabanWeb` | The same set, fetched live from FEBRABAN |
+| 🇧🇷 Brazil | `from wwdates.br.b3 import DatesBRB3` | National + B3 exchange extras (offline, recommended) |
+| 🇧🇷 Brazil | `from wwdates.br.b3_web import DatesBRB3Web` | Scraped from B3's trading calendar (2021–2026) |
 | 🇺🇸 USA | `from wwdates.us.nasdaq import DatesUSNasdaq` | Nasdaq trading calendar |
 | 🇺🇸 USA | `from wwdates.us.federal_holidays import DatesUSFederalHolidays` | US federal holidays (offline, recommended) |
 | 🇺🇸 USA | `from wwdates.us.federal_holidays_web import DatesUSFederalHolidaysWeb` | US federal holidays via live scrape |

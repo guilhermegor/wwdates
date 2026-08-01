@@ -9,18 +9,24 @@ country package (`wwdates.<country>.<provider>`). Every provider **loads a diffe
 calendar** but **shares the same date-operations surface** — the [shared calendar
 operations](#shared-calendar-operations) documented at the bottom of this page.
 
+Most providers come in **two flavours**: an **offline** class (the default — computed locally,
+no network, no cache) and a `*Web` class that fetches the publisher's live table.
+
 | Provider | Import | Holidays it loads |
 |----------|--------|-------------------|
-| [`DatesBRAnbima`](#datesbranbima) | `wwdates.br.anbima` | Brazilian **national** holidays (ANBIMA) |
-| [`DatesBRFebraban`](#datesbrfebraban) | `wwdates.br.febraban` | Brazilian **bank** holidays (FEBRABAN) |
-| [`DatesBRB3`](#datesbrb3) | `wwdates.br.b3` | ANBIMA national **+ B3 exchange** non-trading days |
+| [`DatesBRAnbima`](#datesbranbima) | `wwdates.br.anbima` | Brazilian **national** holidays (ANBIMA) — offline, default |
+| [`DatesBRAnbimaWeb`](#datesbranbimaweb) | `wwdates.br.anbima_web` | The same set, fetched live from ANBIMA |
+| [`DatesBRFebraban`](#datesbrfebraban) | `wwdates.br.febraban` | Brazilian **bank** holidays (FEBRABAN) — offline, default |
+| [`DatesBRFebrabanWeb`](#datesbrfebrabanweb) | `wwdates.br.febraban_web` | The same set, fetched live from FEBRABAN |
+| [`DatesBRB3`](#datesbrb3) | `wwdates.br.b3` | National **+ B3 exchange** non-trading days — offline, default |
+| [`DatesBRB3Web`](#datesbrb3web) | `wwdates.br.b3_web` | Scraped from B3's own trading calendar (2021–2026) |
 | [`DatesUSNasdaq`](#datesusnasdaq) | `wwdates.us.nasdaq` | US **Nasdaq** market-closure days |
 | [`DatesUSFederalHolidays`](#datesusfederalholidays) | `wwdates.us.federal_holidays` | US **federal** public holidays (offline, default) |
 | [`DatesUSFederalHolidaysWeb`](#datesusfederalholidaysweb) | `wwdates.us.federal_holidays_web` | US federal holidays via live scrape (Playwright) |
 
 ### Constructor parameters
 
-The **network-backed** providers (`DatesBRAnbima`, `DatesBRFebraban`, `DatesBRB3`,
+The **network-backed** providers (`DatesBRAnbimaWeb`, `DatesBRFebrabanWeb`, `DatesBRB3Web`,
 `DatesUSNasdaq`, `DatesUSFederalHolidaysWeb`) share these cache parameters:
 
 | Parameter | Type | Default | Purpose |
@@ -32,31 +38,64 @@ The **network-backed** providers (`DatesBRAnbima`, `DatesBRFebraban`, `DatesBRB3
 | `path_cache_dir` | `str \| None` | `None` | Override the default cache directory. |
 | `logger` | `logging.Logger \| None` | `None` | Logger for cache / fetch messages. |
 
-The **offline** `DatesUSFederalHolidays` computes its holidays locally, so it has **no cache
-parameters** — its constructor takes only `int_year_start`, `int_year_end`, and an optional
-`logger`. Providers that fetch a year range (`DatesBRFebraban`, both US federal classes) also
-take `int_year_start` / `int_year_end`.
+The **offline** providers (`DatesBRAnbima`, `DatesBRFebraban`, `DatesBRB3`,
+`DatesUSFederalHolidays`) compute their holidays locally, so they have **no cache
+parameters** — their constructors take only `int_year_start`, `int_year_end`, and an optional
+`logger` (plus `bool_add_christmas_eve` for `DatesBRB3`).
 
 ---
 
 ## Brazil — `wwdates.br`
 
+!!! info "Why the offline BR calendars use `holidays.B3`"
+    The offline Brazilian providers are computed from `holidays.B3` (Brasil, Bolsa, Balcão),
+    **not** `holidays.Brazil`. The latter is the statutory-only national set and omits
+    **Carnaval** (Monday and Tuesday) and **Corpus Christi** — neither is a statutory national
+    holiday, but banks and markets close on both. Using it would silently mark Carnaval as a
+    working day.
+
+    The equivalence was verified before the default was switched: over the full **2001–2099**
+    span ANBIMA publishes, the offline set and the fetched workbook have an **empty symmetric
+    difference**. The same holds for FEBRABAN (checked against its live endpoint for 2025–2026)
+    and for B3 once its last-working-day-of-year rule is applied.
+
 ### `DatesBRAnbima`
+
+The **default, recommended** ANBIMA calendar — computed **offline**, no network and no cache.
 
 ```python
 from wwdates.br.anbima import DatesBRAnbima
 
 DatesBRAnbima(
+    int_year_start=2001, int_year_end=2099,   # defaults: ANBIMA's full published span
+    logger=None,
+)
+```
+
+**Holidays:** the Brazilian **national** holiday set published by ANBIMA — Confraternização
+Universal (New Year), Carnaval, Sexta-feira Santa (Good Friday), Tiradentes, Dia do Trabalho,
+Corpus Christi, Independência, Nossa Senhora Aparecida, Finados, Proclamação da República,
+Consciência Negra, Natal.
+
+**Source:** the [`holidays`](https://pypi.org/project/holidays/) package (offline computation).
+**No cache parameters** — there is nothing to fetch.
+
+**Provider-specific methods:** none beyond the [shared surface](#shared-calendar-operations);
+`holidays()` returns the computed `(name, date)` list.
+
+### `DatesBRAnbimaWeb`
+
+The **live-fetch** variant — use it when you specifically want the workbook as published.
+
+```python
+from wwdates.br.anbima_web import DatesBRAnbimaWeb
+
+DatesBRAnbimaWeb(
     bool_persist_cache=True, bool_reuse_cache=True,
     int_days_cache_expiration=1, int_cache_ttl_days=30,
     path_cache_dir=None, logger=None,
 )
 ```
-
-**Holidays:** the Brazilian **national** holiday set published by ANBIMA — e.g. Confraternização
-Universal (New Year), Carnaval, Sexta-feira Santa (Good Friday), Tiradentes, Dia do Trabalho,
-Corpus Christi, Independência, Nossa Senhora Aparecida, Finados, Proclamação da República, Natal.
-The authoritative list is fetched live from ANBIMA's workbook.
 
 **Source:** `anbima.com.br/feriados/arqs/feriados_nacionais.xls` (read through a schema contract).
 
@@ -70,20 +109,41 @@ The authoritative list is fetched live from ANBIMA's workbook.
 
 ### `DatesBRFebraban`
 
+The **default, recommended** FEBRABAN calendar — computed **offline**, no network and no cache.
+
 ```python
 from wwdates.br.febraban import DatesBRFebraban
 
 DatesBRFebraban(
+    int_year_start=2025, int_year_end=2026,   # defaults: last year and this year
+    logger=None,
+)
+```
+
+**Holidays:** Brazilian **bank** holidays (bank non-working days) for the requested
+`int_year_start`…`int_year_end` range.
+
+**Source:** the `holidays` package (offline computation). FEBRABAN has no dedicated entry in
+that package, but its published federal bank holidays were verified identical to `holidays.B3`
+for 2025 and 2026; years outside that window follow the same statutory rules but have not been
+diffed against FEBRABAN's own publication.
+
+**Provider-specific methods:** none beyond the [shared surface](#shared-calendar-operations).
+
+### `DatesBRFebrabanWeb`
+
+The **live-fetch** variant.
+
+```python
+from wwdates.br.febraban_web import DatesBRFebrabanWeb
+
+DatesBRFebrabanWeb(
     int_year_start=2025, int_year_end=2026,   # year range to fetch
     bool_persist_cache=True, bool_reuse_cache=True,
     int_days_cache_expiration=1, int_cache_ttl_days=30,
     path_cache_dir=None, logger=None,
 )
 ```
-
-**Holidays:** Brazilian **bank** holidays (bank non-working days) as published by FEBRABAN for the
-requested `int_year_start`…`int_year_end` range. Overlaps the national set but is the
-banking-sector authority (what settles / clears).
 
 **Source:** the FEBRABAN bank-holidays JSON API.
 
@@ -96,33 +156,78 @@ banking-sector authority (what settles / clears).
 
 ### `DatesBRB3`
 
+The **default, recommended** B3 calendar — computed **offline**, no network and no cache.
+
 ```python
 from wwdates.br.b3 import DatesBRB3
 
 DatesBRB3(
-    bool_add_christmas_eve=False,   # also treat 24 Dec as a holiday
+    bool_add_christmas_eve=False,             # also treat 24 Dec as a holiday
+    int_year_start=2001, int_year_end=2099,
+    logger=None,
+)
+```
+
+**Holidays:** the **national** set **plus** the B3 exchange's own non-trading days — the last
+working day of each year, on which the exchange does not trade. Pass
+`bool_add_christmas_eve=True` to additionally treat **24 December** (Christmas Eve) as a holiday,
+matching B3's partial/closed-session convention. Use this provider for **trading-day** logic on
+the Brazilian exchange.
+
+**Source:** the `holidays` package + B3 exchange rules (offline computation).
+
+**Provider-specific methods:**
+
+| Method | Signature | Returns | Description |
+|--------|-----------|---------|-------------|
+| `holidays_to_add` | `(set_dates_national)` | `list[tuple[str, date]]` | The extra `(name, date)` pairs B3 adds beyond the national set. |
+| `get_last_working_day` | `(int_year, set_dates_national)` | `date` | The year's last non-weekend, non-holiday day. |
+| `get_christmas_eve` | `(int_year)` | `date` | 24 December of `int_year` (added when `bool_add_christmas_eve` is set). |
+
+### `DatesBRB3Web`
+
+The **live-scrape** variant — reads B3's own published trading calendar.
+
+```python
+from wwdates.br.b3_web import DatesBRB3Web
+
+DatesBRB3Web(
     bool_persist_cache=True, bool_reuse_cache=True,
     int_days_cache_expiration=1, int_cache_ttl_days=30,
     path_cache_dir=None, logger=None,
 )
 ```
 
-**Holidays:** the ANBIMA **national** set **plus** the B3 exchange's own non-trading days. Pass
-`bool_add_christmas_eve=True` to additionally treat **24 December** (Christmas Eve) as a holiday,
-matching B3's partial/closed-session convention. Use this provider for **trading-day** logic on
-the Brazilian exchange.
+**Source:** B3's [trading calendar page](https://www.b3.com.br/pt_br/solucoes/plataformas/puma-trading-system/para-participantes-e-traders/calendario-de-negociacao/feriados/).
 
-**Source:** ANBIMA workbook + B3 exchange rules.
+!!! warning "Coverage is limited to what B3 currently publishes"
+    At the time of writing that is **2021–2026**, six years, versus 2001–2099 for the offline
+    class. There is no year-range parameter — you get the published span. Use `DatesBRB3` for
+    anything outside it.
+
+The page is an **event feed**, not a holiday table: alongside B3's own closures it lists US
+holidays for reference, FX-chamber (`Câmara de Câmbio`) settlement notes, and reduced-hours
+sessions such as Ash Wednesday — on all of which the exchange trades. Rows are classified by
+B3's own wording in the description column (`"não haverá negociação"` marks a closure), not by
+guessing from the event name. If B3 rewords that marker the class raises rather than quietly
+returning an empty calendar.
+
+Two differences from the offline class, both benign for working-day math:
+
+- B3 **omits holidays that fall on a weekend** (there is no session to cancel). Weekends are
+  already non-working days, so results agree.
+- 2021 additionally carries São Paulo's **municipal and state** holidays, which B3 observed
+  that year and stopped observing afterwards.
+
+Christmas Eve needs no flag here — B3 publishes it as a genuine closure in the years it falls
+on a weekday, so it arrives from the source.
 
 **Provider-specific methods:**
 
 | Method | Signature | Returns | Description |
 |--------|-----------|---------|-------------|
-| `get_anbima_holidays` | `(timeout=(12.0, 21.0))` | `DataFrame` | Fetch the ANBIMA base holiday set. |
-| `add_holidays_b3` | `(df_holidays_anbima)` | `DataFrame` | Append the B3 exchange non-trading days to the ANBIMA frame. |
-| `get_holidays_transformed` | `(timeout=(12.0, 21.0))` | `DataFrame` | The full ANBIMA + B3 typed holiday frame. |
-| `holidays_to_add` | `(df_)` | `list[tuple[str, date]]` | The extra `(name, date)` pairs B3 adds beyond ANBIMA. |
-| `get_christmas_eve` | `(int_year)` | `date` | 24 December of `int_year` (added when `bool_add_christmas_eve` is set). |
+| `get_holidays_raw` | `(timeout=(12.0, 21.0))` | `DataFrame` | Flatten the page into `YEAR, MONTH, DAY, NAME, DESCRIPTION` rows. |
+| `transform_holidays` | `(df_)` | `DataFrame` | Keep only the closure rows and type their `DATE`. |
 
 ---
 
