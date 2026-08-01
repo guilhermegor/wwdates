@@ -64,3 +64,5 @@ exclude_docs: |
   checkpoints.md
   # git-ignored scaffolding-lessons record, never published
   blueprintx-lessons.md
+  # git-ignored toolchain-lessons record, never published
+  dotfiles-dev-lessons.md

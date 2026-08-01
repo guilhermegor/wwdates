@@ -119,8 +119,12 @@ Tracked in git but **excluded from the published docs site** (`exclude_docs` in 
       2025, 2026), which means the offline class's `bool_add_christmas_eve=False` default
       disagrees with the exchange. Left unchanged — flipping it is a behaviour change beyond
       issue #7's scope — but it is now evidence-backed, not a matter of taste.
-- [ ] **OIDC `release_*` workflows still unproven on the remote:** Test PyPI failed
-      `invalid-publisher` (publisher env was `release`, workflow now expects per-index
-      `release_test_pypi`); PyPI's publisher must likewise use `release_pypi`. `release_pypi` also
-      needs PR #3 merged (idempotent BYPASS build — the `v0.1.0` tag collision fix). No publish has
-      succeeded yet; register/correct the trusted publishers, then dispatch.
+- [x] **OIDC `release_*` workflows proven live on the remote (2026-08-01).** Both trusted
+      publishers were corrected to the per-index environments (`release_test_pypi` /
+      `release_pypi`) and both workflows published end-to-end with no stored token, during the
+      `1.0.0` release: Test PyPI run 30696472307 (18/18 jobs green) and PyPI run 30696729122
+      (20/20 jobs green, twine uploaded both artifacts with attestations). Tag `v1.0.0` exists and
+      the GitHub release is not a draft. Install-verified from both indices
+      (`wwdates.__version__ == "1.0.0"` in a clean venv).
+      Earlier failure mode, now resolved: Test PyPI returned `invalid-publisher` while the
+      publisher env was the generic `release`.
