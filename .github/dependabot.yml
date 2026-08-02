@@ -1,0 +1,56 @@
+# Dependabot **version** updates (routine bumps) — distinct from Dependabot **security** updates
+# (CVE-triggered), which need no config file and are toggled in Settings → Code security.
+#
+# NO `labels:` KEY HERE, deliberately. Dependabot refuses to apply a label that does not exist in
+# the repo and posts an error comment on every PR it opens when one is missing (filings-cvm hit
+# this on its #79/#80). This repo has no label taxonomy for dependency PRs, so there is nothing to
+# reference. Do not add them.
+#
+# WHY THIS MATTERS HERE: poetry.lock is committed and CI installs FROM it
+# (`poetry install --no-root`) and refuses to re-lock — `.github/workflows/tests.yaml` fails loud
+# on a stale lock rather than regenerating it. So CI tests the frozen locked versions, while a
+# consumer running `pip install wwdates` gets the newest the loose `>=` ranges allow. Those drift
+# apart. This file keeps the lock fresh so CI tests ~what consumers actually install — WITHOUT
+# narrowing the library's ranges (`versioning-strategy: lockfile-only` leaves pyproject.toml
+# alone, which also keeps it in sync with the lock, so the CI lock-sync guard is never tripped).
+version: 2
+updates:
+  # CI action versions — the low-noise win: keeps workflows off deprecated runtimes. Grouped so
+  # all action bumps arrive as one PR.
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+    groups:
+      github-actions:
+        patterns:
+          - "*"
+    commit-message:
+      prefix: "chore(ci)"
+
+  # Python deps (Poetry). lockfile-only: bump poetry.lock, never rewrite the `>=` ranges — a
+  # library must not narrow its ranges for consumers. Minor/patch are grouped into one PR; a MAJOR
+  # arrives on its own PR so it gets scrutiny (majors are where breakage lives). CI runs the full
+  # 3-OS × Python matrix on each PR, so a bump that breaks lint/tests reddens the Dependabot PR —
+  # never main. The floor that matters is pyproject's `python = ">=3.10,<4.0"`.
+  - package-ecosystem: "pip"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+    versioning-strategy: "lockfile-only"
+    groups:
+      python-minor-patch:
+        patterns:
+          - "*"
+        update-types:
+          - "minor"
+          - "patch"
+    ignore:
+      # pandas majors reshape dtype/NA semantics, which `_internal/utils/dtypes.py` depends on —
+      # a manual, reviewed decision, not an automated one. Minor/patch pandas still flow through.
+      - dependency-name: "pandas"
+        update-types:
+          - "version-update:semver-major"
+    open-pull-requests-limit: 5
+    commit-message:
+      prefix: "chore(deps)"
