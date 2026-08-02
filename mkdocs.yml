@@ -11,8 +11,10 @@ nav:
   - Changelog: changelog.md
 theme:
   name: material
-  # overrides/main.html exposes the code version (from mkdocs_hooks.py) as a meta tag.
-  custom_dir: overrides
+  # Native Material mechanism: places the image in the top bar left of the site name, with no
+  # custom CSS, template override or build hook. Same asset as the README/index.md inline logo.
+  logo: assets/logo_wwdates_no_description.png
+  favicon: assets/logo_wwdates_no_description.png
   palette:
     - scheme: default
       primary: indigo
@@ -40,14 +42,8 @@ markdown_extensions:
       base_path:
         - .
 
-# Build hook: reads the version from pyproject.toml into config.extra.code_version,
-# which overrides/main.html surfaces and javascripts/header-version.js renders.
-hooks:
-  - mkdocs_hooks.py
-extra_javascript:
-  - javascripts/header-version.js
 extra_css:
-  - stylesheets/version-badge.css
+  - stylesheets/extra.css
 
 # Non-published docs: MkDocs builds every .md under docs/, so working
 # documents must be excluded here or they ship to readers.
