@@ -41,6 +41,11 @@ Tracked in git but **excluded from the published docs site** (`exclude_docs` in 
   changelog regenerated at release time via `make changelog` (see the changelog decision below).
 - [x] Docs: Home, Usage, Examples, API Reference, FAQ, Contributing, Changelog; logo on README +
   docs homepage; tagline → "Global calendar system."; version-badge CSS; sidebar-title hidden.
+  **SUPERSEDED 2026-08-02 by #14 / PR #21:** the version-badge CSS and the whole version-pill
+  stack (`overrides/main.html`, `mkdocs_hooks.py`, `docs/javascripts/header-version.js`) were
+  **deleted** — the logo now sits in the top bar via Material's native `theme.logo`/`theme.favicon`,
+  and the only surviving rule is the sidebar-title one, in `docs/stylesheets/extra.css`. Do not
+  read this line as describing the current docs setup.
 - [x] Optimized the logo PNGs (were 715 KB / 4.9 MB → ~116 KB / 163 KB) to pass the large-file hook.
 - [x] **`add_holidays()` fixed across all providers.** Two bugs, both provider-only (the abc facade
   masked them): (1) providers skip `super().__init__()` → `_added_holidays` was never
