@@ -14,15 +14,40 @@ The shape is fixed so a ledger stays scannable across branches and sessions::
     ## Deferred (tracked here, not in this PR)     (optional)
     ## Not done, on purpose                        (optional)
 
-**This gate checks the shape of the ledgers it is given — it never demands that a ledger
-exist.** That is a deliberate divergence from ``filings-cvm``'s port of this script, which
-derives a mandatory-ledger rule from ``bin/pr_gate.py``'s path-risk classes. wwdates has no
-``pr_gate.py``, and issue #15 explicitly rejected mandatory existence ("making one mandatory
-would block trivial fix branches for no gain"). Dropping that half removes the only dependency
-and the whole git-diff machinery: pre-commit already passes the changed ledger paths in argv.
+The gate has **two halves**, and they answer different questions:
+
+1. **Shape** — every ledger in the diff must match the template above. Pure, no git needed.
+2. **Existence** — a branch whose cumulative diff touches any ``src``/``ci`` path must add or edit
+   at least one ledger. ``docs``, ``tests``, ``deps`` and ``other`` are exempt.
+
+**"Non-trivial" is made deterministic by PATH**, reusing ``bin/pr_gate.py``'s ``classify_risk``
+rather than re-listing the risk paths here, so the two can never drift on what ``src`` or ``ci``
+means — the same axis the sibling repos classify by.
+
+``classify_risk`` is applied **per path** (set-membership), never to the whole list: the
+whole-list call collapses a diff to its *single most dangerous* class and ranks ``tests`` above
+``ci``, so a branch touching both ``bin/`` and ``tests/`` would collapse to ``tests`` and wrongly
+escape the requirement. The question here is "does *any* changed path fall in a ledger class?",
+not "what is this diff's worst class".
+
+**History of the existence half (issue #26 reversed issue #15).** #15 shipped shape-only and
+recorded, under "Not done, on purpose": *"Requiring a ledger to exist for every branch … would
+block trivial fix branches for no gain."* #26 reversed that deliberately, with the trigger
+narrowed to ``src``/``ci``: a docs-only or tests-only branch stays free (the trivial case #15
+actually cared about — PR #28, a one-line docs fix, needs no ledger), while a change to shipped
+code or to the CI that guards it must record its reasoning. A one-line ``src/`` fix **does** now
+owe a ledger; that is the accepted cost, chosen over an opt-out flag that erodes once it becomes
+habitual.
+
+The check is **diff-based, not per-commit**: a ledger is a per-*branch* artifact, so a later
+source-only commit on a branch that already carries one must pass. It compares the branch against
+its merge-base with ``main``. On ``main`` itself the merge-base is ``HEAD``, the diff is empty, and
+the whole check is a no-op — so it only ever fires on a feature branch, which is where a ledger is
+owed.
 
 Failures (each a hard error, exit 1):
 
+- the branch touches a ``src``/``ci`` path but its diff adds no ledger at all;
 - the filename does not match ``<kebab-topic>_YYYYMMDD_HHMMSS.md``;
 - the H1 is not ``# Ledger — #<issue> <slug>``;
 - no ``Branch: … · Issue: #<n> · Class: **<src|ci|docs>**`` metadata line;
@@ -30,14 +55,33 @@ Failures (each a hard error, exit 1):
 - the H1's slug disagrees with the filename's topic;
 - ``## Goal`` or ``## Work`` is missing;
 - ``## Work`` carries no ``- [ ]`` / ``- [x]`` checkbox item.
+
+Bots are exempt from the **existence** half — see :func:`is_bot_actor`.
 """
 
 from __future__ import annotations
 
 from collections.abc import Callable
+import os
 import pathlib
 import re
+import shutil
+import subprocess
 import sys
+
+
+# Reuse the PR gate's path->risk classifier instead of re-listing the risk paths here, so the two
+# can never drift on what "src" or "ci" means. `bin/` is this file's own directory; put it on the
+# path first so the sibling import resolves regardless of the caller's cwd (pre-commit and a manual
+# run both invoke this as `python bin/check_backlog_ledger.py`).
+sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent))
+import pr_gate  # noqa: E402  (deliberate: import follows the sys.path bootstrap above)
+
+
+# Risk classes whose changes are "non-trivial" enough to demand a work ledger — the same path axis
+# `pr_gate` computes: `src` = shipped source, `ci` = bin/CI/workflows/build config. `deps` / `docs`
+# / `tests` / `other` are exempt (a lockfile bump, a docs typo, a test-only tweak).
+LEDGER_CLASSES: frozenset[str] = frozenset({"src", "ci"})
 
 
 # ``<kebab-topic>_YYYYMMDD_HHMMSS.md`` — kebab topic (no underscores of its own), then an
@@ -176,28 +220,72 @@ def check_one(str_path: str, str_text: str) -> list[str]:
 	return list_errors
 
 
-def check(list_paths: list[str], read_text: Callable[[str], str | None]) -> list[str]:
-	"""Return every violation across the given ledgers (empty list = clean).
+def requires_ledger(list_paths: list[str]) -> bool:
+	"""Say whether a diff's paths oblige the branch to carry a work ledger.
 
-	Pure: all filesystem access is injected via ``read_text``, so the rule is unit-testable
-	without a working tree.
+	Reuses :func:`pr_gate.classify_risk` **per path** (set-membership), not on the whole list: the
+	whole-list call returns only the single most-dangerous class and ranks ``tests`` above ``ci``,
+	so a branch touching both ``bin/`` and ``tests/`` would collapse to ``tests`` and wrongly
+	escape the requirement. Asking each path keeps "any src/ci path present?" honest.
 
 	Parameters
 	----------
 	list_paths : list of str
-		Paths to check, absolute or repo-relative. Anything that is not a ``.md`` file directly
-		inside a ``docs/backlog`` directory is ignored, so the hook can be handed a broad file
-		list.
+		Repo-relative paths in the branch's cumulative diff.
+
+	Returns
+	-------
+	bool
+		True when at least one path classifies as a ledger class (``src`` or ``ci``).
+	"""
+	return any(pr_gate.classify_risk([str_path]) in LEDGER_CLASSES for str_path in list_paths)
+
+
+def check(
+	list_paths: list[str],
+	read_text: Callable[[str], str | None],
+	*,
+	bool_require_existence: bool = False,
+) -> list[str]:
+	"""Return every violation across the given paths (empty list = clean).
+
+	Pure: all filesystem and git access is injected via ``read_text`` and the caller's path list,
+	so both halves are unit-testable without a working tree.
+
+	Parameters
+	----------
+	list_paths : list of str
+		Paths to check, absolute or repo-relative. For the shape half, anything that is not a
+		``.md`` file directly inside a ``docs/backlog`` directory is ignored, so the hook can be
+		handed a broad file list. For the existence half, this must be the branch's **cumulative**
+		diff — a per-commit list would demand a ledger on every later commit of a branch that
+		already carries one.
 	read_text : callable
 		Maps a repo-relative path to its text, or ``None`` when the file is absent (e.g. a
 		deleted ledger, which has no content to judge).
+	bool_require_existence : bool, optional
+		When True, also require that a ``src``/``ci`` diff carries at least one ledger. Defaults
+		to False so an explicit, ad-hoc invocation stays shape-only.
 
 	Returns
 	-------
 	list of str
-		Human-readable error lines; empty when every ledger satisfies the shape.
+		Human-readable error lines; empty when the branch satisfies the rule.
 	"""
 	list_errors: list[str] = []
+
+	if (
+		bool_require_existence
+		and requires_ledger(list_paths)
+		and not any(is_ledger_path(str_path) for str_path in list_paths)
+	):
+		list_errors.append(
+			"❌ branch touches a src/ci path but its diff adds no "
+			"docs/backlog/<kebab-topic>_YYYYMMDD_HHMMSS.md work ledger — a change to shipped "
+			"code or to the CI guarding it must record its reasoning (issue #26). Create one, "
+			"tracking each to-do as a `- [ ]` box."
+		)
+
 	for str_path in list_paths:
 		if not is_ledger_path(str_path):
 			continue
@@ -206,6 +294,130 @@ def check(list_paths: list[str], read_text: Callable[[str], str | None]) -> list
 			continue
 		list_errors.extend(check_one(str_path, str_text))
 	return list_errors
+
+
+def is_bot_actor(str_actor: str | None) -> bool:
+	"""Say whether a branch's author is a bot, and so exempt from the existence rule.
+
+	GitHub names bot actors with a ``[bot]`` suffix — ``dependabot[bot]``,
+	``github-actions[bot]``. That suffix is the whole test: it is GitHub's own marker, so no
+	allow-list of bot names has to be maintained (and none can go stale).
+
+	⚠️ **Feed this the PR's author, not ``GITHUB_ACTOR``.** ``GITHUB_ACTOR`` names whoever
+	*triggered the run*, so the moment a human touches a bot's PR — a manual re-run, a
+	maintainer's fixup — it becomes that human and the exemption evaporates, which is exactly when
+	it is needed. :func:`_ledger_author` resolves the right value.
+
+	**Why bots are exempt.** A work ledger records a *human's* reasoning — what was done, what is
+	still open, why a shortcut was taken. An automated dependency bump has none to record: the
+	diff is the entire message and the upstream changelog is the justification. Dependabot's
+	``github-actions`` group edits ``.github/`` (risk class ``ci``), so without this exemption
+	every one of those PRs would be permanently red — which only teaches people to reach for
+	``--no-verify``, a worse habit than the gate prevents.
+
+	The exemption keys on the **author**, never on the path: a *human* branch touching a workflow
+	still owes a ledger, and only the actor changes the answer.
+
+	Parameters
+	----------
+	str_actor : str or None
+		The acting user. ``None`` or empty (a local run) is **not** a bot — a developer's machine
+		must still satisfy the rule.
+
+	Returns
+	-------
+	bool
+		True when the actor is a GitHub bot.
+	"""
+	if not str_actor:
+		return False
+	return str_actor.strip().lower().endswith("[bot]")
+
+
+def _ledger_author() -> str | None:
+	"""Resolve whose branch this is: the PR's author, falling back to the run's actor.
+
+	``LEDGER_PR_AUTHOR`` is supplied by CI from ``github.event.pull_request.user.login`` — the
+	PR's **author**, which never changes no matter who re-runs or updates the branch. It is the
+	value the bot exemption actually needs.
+
+	``GITHUB_ACTOR`` is the fallback for contexts with no pull-request payload (a push to
+	``main``, a local run). There the actor *is* the right answer, and it is a human, so the gate
+	applies — which is the safe direction to fall back in.
+
+	Returns
+	-------
+	str or None
+		The PR author when CI provides one, else the triggering actor, else ``None``.
+	"""
+	return os.environ.get("LEDGER_PR_AUTHOR") or os.environ.get("GITHUB_ACTOR")
+
+
+def _git(*args: str) -> subprocess.CompletedProcess[str]:
+	"""Run a git command with a trusted, constant argv and capture its output.
+
+	Parameters
+	----------
+	*args : str
+		Arguments after the ``git`` executable.
+
+	Returns
+	-------
+	subprocess.CompletedProcess of str
+		The completed process (``check=False``; callers inspect ``returncode``).
+	"""
+	str_git = shutil.which("git") or "git"
+	# Trusted, constant argv, with an absolute git path resolved beforehand — bandit S603.
+	return subprocess.run([str_git, *args], capture_output=True, text=True, check=False)  # noqa: S603
+
+
+def _base_ref() -> str | None:
+	"""Resolve the commit to diff the branch against (its merge-base with main).
+
+	Honours a ``LEDGER_BASE_REF`` override first (CI passes the PR's base SHA), then the
+	merge-base with ``origin/main`` and finally with ``main``. Returns ``None`` when none
+	resolves — e.g. on ``main`` itself, where there is no branch to enforce.
+
+	Returns
+	-------
+	str or None
+		A commit-ish to diff against, or ``None`` when the check should be a no-op.
+	"""
+	str_override = os.environ.get("LEDGER_BASE_REF")
+	if str_override:
+		return str_override
+	for str_ref in ("origin/main", "main"):
+		cls_proc = _git("merge-base", "HEAD", str_ref)
+		if cls_proc.returncode == 0 and cls_proc.stdout.strip():
+			return cls_proc.stdout.strip()
+	return None
+
+
+def _changed_paths() -> list[str]:
+	"""Return the branch's cumulative changed paths (merge-base with main -> the index).
+
+	Diffs the **index** (``--cached``), not the working tree: pre-commit runs against *staged*
+	content, and ``git diff`` ignores untracked files — a brand-new ledger not yet staged would
+	be invisible, so the gate would demand a ledger that is right there but not added. The index
+	holds the branch's earlier commits and the files staged for this commit, so ``--cached``
+	captures exactly what the branch is about to contribute.
+
+	Diffing from the merge-base (not two-dot against the branch tip) yields exactly the branch's
+	own changes and excludes commits that landed on ``main`` in the meantime, matching three-dot
+	semantics without needing them.
+
+	Returns
+	-------
+	list of str
+		Repo-relative changed paths; empty when there is no base to compare against.
+	"""
+	str_base = _base_ref()
+	if str_base is None:
+		return []
+	cls_proc = _git("diff", "--cached", "--name-only", str_base)
+	if cls_proc.returncode != 0:
+		return []
+	return [line for line in cls_proc.stdout.splitlines() if line]
 
 
 def _read_text(str_path: str) -> str | None:
@@ -228,7 +440,28 @@ def _read_text(str_path: str) -> str | None:
 
 
 if __name__ == "__main__":
-	list_found = check(sys.argv[1:], _read_text)
+	# The bot exemption lives here, in the I/O seam, so `check` stays pure and unit-testable
+	# without an environment. See `is_bot_actor` for why bots are exempt, and `_ledger_author` for
+	# why the PR's author — not the run's actor — is the value that decides it.
+	if is_bot_actor(_ledger_author()):
+		print("ℹ️  bot-authored branch — work ledger not required (see is_bot_actor).")
+		sys.exit(0)
+
+	# There are two invocation modes, deliberately.
+	#
+	# With explicit path arguments — a manual run naming one ledger — only the SHAPE is checked,
+	# which is handy when there is no branch context. With no arguments, which is how pre-commit
+	# and CI call it, the branch's cumulative diff drives BOTH halves.
+	#
+	# The existence half must NOT work from a handed-in file list. Pre-commit would only ever pass
+	# the ledgers that changed, so the one case this exists to catch — a branch carrying no ledger
+	# whatsoever — would arrive as nothing to look at, and pass in silence.
+	list_argv = sys.argv[1:]
+	if list_argv:
+		list_found = check(list_argv, _read_text)
+	else:
+		list_found = check(_changed_paths(), _read_text, bool_require_existence=True)
+
 	for str_line in list_found:
 		print(str_line)
 	sys.exit(1 if list_found else 0)
