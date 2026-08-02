@@ -108,6 +108,15 @@ repos:
           - python
         pass_filenames: false
 
+      # Shape gate for docs/backlog ledgers. Unlike the sibling repos' version, this does NOT
+      # require a ledger to exist (issue #15: that would block trivial fix branches) — it only
+      # validates the ones being committed, so pre-commit's own file list is the input.
+      - id: check-backlog-ledger
+        name: backlog ledger shape check
+        entry: bash bin/poetry_exec.sh run python bin/check_backlog_ledger.py
+        language: system
+        files: ^docs/backlog/.*\.md$
+
       - id: mypy
         name: mypy (static type check)
         # Run from src/ so it is the single package base (bare config.x/utils.x imports
