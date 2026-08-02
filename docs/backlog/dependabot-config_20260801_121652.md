@@ -30,14 +30,53 @@ yields grouped, predictable PRs instead of manual bumps nobody remembers.
       the first PR it opens is grouped and carries the `chore(deps)` / `chore(ci)` prefix.
       *(Post-merge — Dependabot only reads the file from the default branch.)*
 
+## Also fixed here — `tests.yaml` could not have gated a single Dependabot PR
+
+The floor check above pulled a thread that ended in a CI cache bug. **In scope, not deferred**:
+`tests.yaml` is the gate this whole config depends on, and as written it was incapable of
+reporting on a Dependabot PR at all. Shipping the config without this would have shipped a no-op.
+
+### 1. The matrix lied about the floor
+
+`["3.9", "3.10", "3.11", "3.12", "3.13"]` while `pyproject.toml` requires `>=3.10`. Now
+`["3.10", "3.11", "3.12", "3.13", "3.14"]`, matching `filings-cvm`.
+
+- `requirements.txt` (`poetry>=2.4 ; python_full_version >= "3.10"`) has no upper bound, so 3.14
+  installs Poetry fine. Nothing else pins an upper Python bound.
+- `classifiers` only claim `Programming Language :: Python :: 3` — no per-version claim to keep
+  in sync, so they were left alone.
+
+### 2. Why the below-floor 3.9 legs reported `success`
+
+Verified, not guessed: on run 30725490428, **`Install Dependencies` is `skipped` on all 15 jobs**
+— every leg hit the venv cache. The 3.9 legs never re-resolved the project, so nothing ever
+raised the floor violation. Three coupled defects, all present in `filings-cvm` too (so this is a
+template defect, not a wwdates one):
+
+- **The cache key hashed only `pyproject.toml`.** A `poetry.lock`-only change was therefore always
+  a cache hit — and `versioning-strategy: lockfile-only` produces *exactly* lock-only diffs. Every
+  Dependabot PR would have restored a stale `.venv`, skipped the install, and gone green while
+  testing the pre-bump dependency set. Fixed: `hashFiles('poetry.lock', 'pyproject.toml')`.
+- **`poetry.lock` was in the cache `path:`.** A restored cache overwrites the repo's committed
+  lockfile, so `poetry check --lock` was validating a cache artifact rather than the tree. Fixed:
+  `path: .venv` only — cache build outputs, never tracked source.
+- **`poetry check --lock` lived inside the cache-guarded step**, so the fail-loud lock-sync gate
+  never ran on a warm cache — disabled by the very condition that makes it cheap. Fixed: promoted
+  to its own unconditional step, before the cache restore. Verified locally: `poetry check --lock`
+  exits 0 against the unmodified `pyproject.toml`.
+
+Moving the check before the win32-stripping transform also makes it check what a developer checks
+locally, rather than a rewritten `pyproject.toml`.
+
 ## Deferred (tracked here, not in this PR)
 
-- **`tests.yaml` advertises a Python version the package rejects.** The matrix runs
-  `["3.9", "3.10", ..., "3.13"]` while `pyproject.toml` requires `>=3.10`. The 3.9 jobs report
-  `success` (run 30725490428, all 15 green), so the matrix leg is not actually exercising the
-  package on 3.9 — either the install silently no-ops or `poetry` resolves a different
-  interpreter. Not a dependency-automation bug and out of this PR's scope, but it means CI
-  publishes a support claim the metadata contradicts. Needs its own issue.
+- **The win32-stripping `python -c` transform in `Install Dependencies` is dead code here** —
+  wwdates has no `pywin32` dependency (`grep` finds zero matches in `pyproject.toml`), so the
+  transform is a template leftover that copies, rewrites and restores `pyproject.toml` to no
+  effect. Deleting it is a separate simplification, not a dependency-automation change.
+- **`actions/cache@v3`** is two majors behind (`filings-cvm` is on `@v6`). Left alone on purpose:
+  the `github-actions` group added in this PR is exactly what should propose that bump, and
+  letting it do so is the first end-to-end proof the config works.
 
 ## Not done, on purpose
 
