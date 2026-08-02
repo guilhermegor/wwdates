@@ -39,6 +39,21 @@ _WEB_EXTRA_HINT = (
 	'`pip install "wwdates[web]"` and then `playwright install chromium`.'
 )
 
+# Playwright's own `set_default_timeout` default, so the scraper behaves like the library it
+# wraps for anyone who does not pass `int_default_timeout`. This feeds `page.goto`, so a small
+# value here is not "fast", it is "cannot load any page".
+_DEFAULT_TIMEOUT_MS = 30_000
+
+# Cookie-consent banner handling. The selector is a single English string because the only page
+# this library drives with Playwright (federalholidays.net) is English — widen it deliberately,
+# not incidentally, if a non-English source is ever added.
+_COOKIE_ACCEPT_SELECTOR = "text=Accept All"
+
+# Bounded wait for a banner that is usually absent. Paid on EVERY navigation, so it must stay
+# far below `_DEFAULT_TIMEOUT_MS`: this budget buys the chance to catch a banner injected by a
+# consent script just after load, and nothing else.
+_COOKIE_PROBE_TIMEOUT_MS = 1_000
+
 
 class CreateLog:
 	"""Adapter preserving the scraper's ``log_message(logger, message, level)`` call shape.
@@ -105,7 +120,7 @@ class PlaywrightScraper(metaclass=TypeChecker):
 		user_agent: str | None = None,
 		proxy: str | None = None,
 		viewport: dict[str, int] | None = None,
-		int_default_timeout: int = 10,
+		int_default_timeout: int = _DEFAULT_TIMEOUT_MS,
 		bool_accept_cookies: bool = True,
 		bool_incognito: bool = False,
 		bool_minimized_window: bool = False,
@@ -124,7 +139,8 @@ class PlaywrightScraper(metaclass=TypeChecker):
 		viewport : Optional[dict[str, int]]
 			Browser viewport settings (default: {"width": 1920, "height": 1080})
 		int_default_timeout : int
-			Default timeout in milliseconds (default: 10)
+			Default page-operation timeout in milliseconds (default: 30000, matching
+			Playwright's own default). Feeds ``page.goto`` and every selector wait.
 		bool_accept_cookies : bool
 			Attempt to accept cookies if popup appears (default: True)
 		bool_incognito : bool
@@ -290,19 +306,43 @@ class PlaywrightScraper(metaclass=TypeChecker):
 			CreateLog().log_message(self.logger, f"Error getting current URL: {err}", "error")
 			return None
 
-	def _handle_cookie_popup(self, timeout: int | None = 30_000) -> None:
-		"""Attempt to accept cookies if popup appears.
+	def _handle_cookie_popup(self, timeout: int | None = None) -> None:
+		"""Attempt to accept cookies if a consent banner is present.
+
+		Probes for the banner first and returns quietly when there is none — the common
+		case, since most pages ship no consent banner at all. Only a banner that is
+		present but unclickable is an error worth reporting.
 
 		Parameters
 		----------
 		timeout : Optional[int]
-			Timeout for cookie acceptance attempt (default: 3000ms)
+			Milliseconds to wait for the banner to appear before concluding there is none
+			(default: ``_COOKIE_PROBE_TIMEOUT_MS``). Deliberately short: this is bounded
+			waiting for something that is usually absent, so it is paid on every
+			navigation. It is NOT the page-load timeout (``int_default_timeout``).
 		"""
+		probe_timeout = timeout if timeout is not None else _COOKIE_PROBE_TIMEOUT_MS
+		self._validate_timeout(probe_timeout)
+
+		locator = self.page.locator(_COOKIE_ACCEPT_SELECTOR).first
 		try:
-			self.page.click("text=Accept All", timeout=timeout)
+			locator.wait_for(state="visible", timeout=probe_timeout)
+		except Exception:
+			# Absence is the normal outcome here, not a failure, so it is reported at info
+			# level — that keeps a genuinely unclickable banner distinguishable from a page
+			# that simply never asked for consent.
+			CreateLog().log_message(
+				self.logger, "No cookie consent banner found; nothing to accept", "info"
+			)
+			return
+
+		try:
+			locator.click(timeout=probe_timeout)
 			CreateLog().log_message(self.logger, "Accepted cookies", "info")
 		except Exception as err:
-			CreateLog().log_message(self.logger, f"Error accepting cookies: {err}", "error")
+			CreateLog().log_message(
+				self.logger, f"Cookie banner present but could not be accepted: {err}", "error"
+			)
 
 	def selector_exists(
 		self, selector: str, timeout: int | None = None, visible: bool | None = None
