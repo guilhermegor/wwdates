@@ -13,49 +13,69 @@ workaround for it. Divergence becomes one self-filing tracking issue, never a re
 Model to copy in shape: `filings-cvm/bin/check_contract_drift.py` +
 `filings-cvm/.github/workflows/contract-drift.yaml` (that repo's issue #98).
 
+**Shipped in PR #17 (`555277f`), issue #12 closed 2026-08-01.**
+
 ## Work
 
-- [ ] `bin/check_calendar_drift.py` — compare **dates only, never names** (B3 publishes an event
+- [x] `bin/check_calendar_drift.py` — compare **dates only, never names** (B3 publishes an event
       feed with free-text wording) across the four pairs:
       `DatesBRB3`↔`DatesBRB3Web`, `DatesBRAnbima`↔`DatesBRAnbimaWeb`,
       `DatesBRFebraban`↔`DatesBRFebrabanWeb`, `DatesUSFederalHolidays`↔`DatesUSFederalHolidaysWeb`.
       `DatesUSNasdaq` is web-only — no offline twin, skip it.
-- [ ] Reuse the filings-cvm structure rather than reinventing it: `build_issue_body()` with a
+- [x] Reuse the filings-cvm structure rather than reinventing it: `build_issue_body()` with a
       hidden `_ISSUE_MARKER`, `find_open_drift_issue()` matching on label + marker,
       `upsert_issue()` doing `GET issues?state=open&labels=…` then `PATCH` or `POST`, `_api()`
       over `GITHUB_TOKEN`, `main()` returning `0` unconditionally.
-- [ ] Known-exceptions allowlist as a module-level constant, each entry commented with its PR #10
+- [x] Known-exceptions allowlist as a module-level constant, each entry commented with its PR #10
       evidence so widening it is a deliberate edit:
       - B3 offline-only dates falling on a **weekend** (B3 omits them — no session to cancel);
       - the **2021 São Paulo** municipal/state dates (scrape-only; B3 stopped observing them).
-- [ ] Clamp the comparison span per pair — FEBRABAN's endpoint only serves a narrow year window,
-      so diffing years the source never publishes would manufacture false drift.
-- [ ] `.github/workflows/calendar-drift.yaml` — weekly `schedule` (odd minute, UTC) +
+- [x] Clamp the comparison span per pair — **implemented as a runtime derivation from the web
+      side**, not a per-pair constant: `DatesBRB3Web` and `DatesBRAnbimaWeb` take no year range at
+      all (they publish what they publish), so `clamp_to_web_span()` reads min/max year off the
+      fetched set. A hard-coded span would rot the moment B3 publishes another year.
+- [x] `.github/workflows/calendar-drift.yaml` — weekly `schedule` (`37 6 * * 1`) +
       `workflow_dispatch: {}`; `permissions: {contents: read, issues: write}`;
       `concurrency: {group: calendar-drift, cancel-in-progress: false}`;
-      `poetry install --extras web` + `poetry run playwright install --with-deps chromium`
-      (`DatesUSFederalHolidaysWeb` drives Playwright via
-      `_internal/utils/webdriver_tools/playwright_wd.py`);
-      env `GITHUB_TOKEN: ${{ github.token }}`, `GITHUB_REPOSITORY: ${{ github.repository }}`.
-- [ ] Put the non-blocking rationale in the workflow header comment: a B3/ANBIMA outage and a real
-      drift are indistinguishable in a red check, so a red check must never gate a PR. The script
-      always `sys.exit(0)`; only an unhandled crash reddens the run, and a reddened *scheduled* run
-      gates nothing.
-- [ ] `tests/unit/test_check_calendar_drift.py` — unit only, socket guard intact (no
-      `allow_network`): identical sets → no problems; extra web date → reported; allowlisted
-      weekend / 2021-SP date → not reported; `main()` returns `0` even with problems;
-      `find_open_drift_issue()` against a fixture issue list.
-- [ ] Verify on the remote: dispatch manually, confirm it installs Chromium, reaches all four
-      sources, exits 0, and opens **one** issue. Re-dispatch and confirm the second run *updates*
-      that same issue instead of opening a second — the marker/label dedupe is the part most
-      likely to be wrong.
+      `poetry install --extras web` + `poetry run playwright install --with-deps chromium`.
+- [x] Put the non-blocking rationale in the workflow header comment **and** the module docstring.
+- [x] `tests/unit/test_check_calendar_drift.py` — **33 tests**, socket guard intact throughout (no
+      `allow_network` anywhere). The tests written after their code were **mutation-checked**:
+      disabling the weekend allowance, dropping Christmas Eve from the allowlist, removing the span
+      clamp and making `main()` return 1 each turned exactly the intended test red, then restored.
+- [x] Verify on the remote: run
+      [30725271837](https://github.com/guilhermegor/wwdates/actions/runs/30725271837) —
+      `workflow_dispatch` on `main`, **cold runner, no cache**, all 10 steps green including the
+      Chromium install. Output: `no calendar drift detected (0 source(s) could not be checked)` —
+      all four pairs fetched live, zero divergence. Independently reconfirms PR #10's hand
+      verification from a clean environment.
+
+## Two bugs found by running it before shipping
+
+Both were caught because the job was exercised against the real sources *before* merge, not after:
+
+- [x] **The `*Web` classes cache by default.** A drift detector that reads a cache cannot detect
+      drift — and a *partial* cache from an earlier failed fetch is reported **as** drift.
+      Measured: 2 of 22 US dates served stale → **9 false positives**. Had it shipped, the first CI
+      run would have filed fabricated findings and the natural "fix" would have been widening the
+      allowlist, permanently blinding the job. Fixed with an `_uncached()` wrapper at the registry
+      plus a test asserting it for every pair.
+- [x] **Read failures opened the drift issue.** federalholidays.net timed out mid-testing, which
+      showed an outage filing a "calendar drift" issue naming no drift — the cry-wolf that makes a
+      drift job worse than nothing. `collect_drift()` now returns `(problems, errors)` separately;
+      errors never open the issue, they only ride along in the body when one opens for real drift.
 
 ## Deferred (tracked here, not in this PR)
 
-- **24 December.** It will surface as a B3 offline-vs-web difference in every year it falls on a
-  weekday, for as long as `bool_add_christmas_eve` stays `False`. Decide during implementation
-  whether to allowlist it (with a pointer to the open decision) or leave it as the standing nag,
-  and record which was chosen here.
+- **24 December — decided: allowlisted.** `b3_known_web_only()` excuses it for every year the
+  source returns. B3 publishes it as a genuine closure in every year it falls on a weekday while
+  `DatesBRB3` defaults to `bool_add_christmas_eve=False`, so unexcused the job would restate the
+  same *known* disagreement every single week — noise that drowns the signal it exists to carry.
+  The decision on the default itself stays open in `dehydrate-calendars_20260704_130854.md`.
+- **The upsert's write half is unverified.** `POST` (open) and `PATCH` (update) never ran, because
+  there was no drift to trigger them. The pure helpers are unit-tested and `_api()` was verified
+  live on the `GET`, but the open-then-update pair is unproven. Symptom to watch on the first real
+  drift: a finding in the logs with no issue opened. Recorded on issue #12 too.
 
 ## Not done, on purpose
 
@@ -63,3 +83,14 @@ Model to copy in shape: `filings-cvm/bin/check_contract_drift.py` +
   `dehydrate-calendars_20260704_130854.md`. This job gives that decision more evidence; it does
   not resolve it.
 - Making the check blocking, or moving it into the test suite. Both defeat the reason it exists.
+- Fixing `PlaywrightScraper`'s 30 s cookie-popup timeout, surfaced by this job's first run and
+  filed as **#18**. Out of scope here — the sweep degrades correctly (`could not check`, never
+  drift); the timeout is latency and log noise, not incorrectness.
+
+## Lesson captured
+
+`drift-job-must-disable-the-client-cache` — BlueprintX store + README index +
+`docs/blueprintx-lessons.md`. The general rule: **cache/retry/timeout policy is a property of the
+caller's intent, not the client**; when a job reuses a production client for a purpose it was not
+written for, audit every default it carries. Sibling of the existing
+`probe-injects-fail-fast-retry-not-patient-production-policy` (same shape, one knob over).
