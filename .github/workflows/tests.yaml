@@ -27,7 +27,9 @@ jobs:
     strategy:
       matrix:
         os: [ubuntu-latest, windows-latest, macos-latest]
-        python-version: ["3.9", "3.10", "3.11", "3.12", "3.13"]
+        # Must track pyproject's `python = ">=3.10,<4.0"`. 3.9 was listed here but is below the
+        # floor, so that leg never actually exercised the package; 3.14 is released and supported.
+        python-version: ["3.10", "3.11", "3.12", "3.13", "3.14"]
     steps:
       - name: Checkout Code
         uses: actions/checkout@v4
@@ -44,14 +46,38 @@ jobs:
           virtualenvs-create: true
           version: 2.2.1
 
+      # Fail loud on a stale lock instead of silently regenerating it. A poetry.lock that no
+      # longer matches pyproject.toml means dependencies changed without re-locking; regenerating
+      # here (rm + poetry lock) would re-resolve and upgrade every dependency to the latest
+      # in-range version — a non-reproducible build that can silently pull a breaking release.
+      # Require an intentional `poetry lock` + commit instead. (A version bump does NOT invalidate
+      # the lock — only a dependency change does.)
+      #
+      # This is its OWN step, deliberately. It used to live inside the cache-guarded install step
+      # below, which meant that on a cache hit the guard never ran at all — the gate was disabled
+      # by exactly the condition that makes it cheap to run.
+      - name: Verify poetry.lock Is In Sync With pyproject.toml
+        run: |
+          if ! poetry check --lock; then
+            echo "::error::poetry.lock is out of sync with pyproject.toml — run 'poetry lock' locally and commit the result." >&2
+            exit 1
+          fi
+
+      # The key MUST hash poetry.lock as well as pyproject.toml. Hashing pyproject.toml alone made
+      # every lock-only change a cache hit — so the job restored a stale .venv, skipped the install
+      # entirely, and reported green while testing the OLD dependency set. That silently defeats
+      # Dependabot, whose `versioning-strategy: lockfile-only` produces precisely lock-only diffs
+      # (.github/dependabot.yml).
+      #
+      # poetry.lock is NOT in `path:` either: caching a tracked file means a restored cache
+      # overwrites the repo's committed lockfile, so the check above would validate a cache
+      # artifact instead of what is actually in the tree. Cache build outputs, never source.
       - name: Load Cached Virtual Environment
         id: cached-venv
         uses: actions/cache@v3
         with:
-          path: |
-            .venv
-            poetry.lock
-          key: venv-${{ runner.os }}-${{ matrix.python-version }}-${{ hashFiles('pyproject.toml') }}
+          path: .venv
+          key: venv-${{ runner.os }}-${{ matrix.python-version }}-${{ hashFiles('poetry.lock', 'pyproject.toml') }}
 
       - name: Install Dependencies
         if: steps.cached-venv.outputs.cache-hit != 'true'
@@ -65,18 +91,6 @@ jobs:
               content = re.sub(r"pywin32\s*=.*\n", "", content)
           print(content)
           ' > pyproject.toml
-
-          # Fail loud on a stale lock instead of silently regenerating it. A poetry.lock
-          # that no longer matches pyproject.toml means dependencies changed without
-          # re-locking; regenerating here (rm + poetry lock) would re-resolve and upgrade
-          # every dependency to the latest in-range version — a non-reproducible build that
-          # can silently pull a breaking release. Require an intentional `poetry lock` +
-          # commit instead. (A version bump does NOT invalidate the lock — only a dependency
-          # change does — so `make bump_version` never trips this.)
-          if ! poetry check --lock; then
-            echo "::error::poetry.lock is out of sync with pyproject.toml — run 'poetry lock' locally and commit the result." >&2
-            exit 1
-          fi
 
           echo "No groups to exclude, installing all dependencies"
           poetry install --no-interaction --no-root
