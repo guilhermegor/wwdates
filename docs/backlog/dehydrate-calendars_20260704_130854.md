@@ -1,4 +1,12 @@
-# Work ledger — `feat/dehydrate-calendars`
+# Ledger — #1 dehydrate-calendars
+
+Branch: `feat/dehydrate-calendars` · Issue: #1 · Class: **src** (shipped in 1.0.0)
+
+<!-- #1 is PR #1, not an issue: this branch predates the /issue workflow, so no issue was ever
+     filed. GitHub numbers issues and PRs in one sequence, so #1 resolves to the right artifact.
+     Headings below were migrated to the standard shape by #15; no content line was changed. -->
+
+## Goal
 
 Branch-scoped record of what was done and what remains, so knowledge survives across sessions.
 Tracked in git but **excluded from the published docs site** (`exclude_docs` in `mkdocs.yml`).
@@ -8,7 +16,7 @@ Tracked in git but **excluded from the published docs site** (`exclude_docs` in 
 > `~/.claude/memory/lessons/`. Lessons = reusable, scaffold-backportable; this backlog =
 > what happened on *this* branch and what is still open.
 
-## Done
+## Work
 
 - [x] Dehydrated the BR/US holiday calendars from `stpstone` into `wwdates`, laid out as
   `wwdates.<country>.<provider>` (one public class per module).
