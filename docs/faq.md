@@ -118,9 +118,11 @@ pip show tzdata
 
 ## Which provider should I use for trading-day logic?
 
-- **Brazilian exchange (B3):** `DatesBRB3` — national holidays plus B3 non-trading days
-  (optionally Christmas Eve). `DatesBRB3Web` scrapes B3's own calendar, but only covers the
-  years B3 publishes (2021–2026 today).
+- **Brazilian exchange (B3):** `DatesBRB3` — national holidays plus B3 non-trading days,
+  **including 24 December**, which B3 publishes as a closure (pass
+  `bool_add_christmas_eve=False` to opt out; the default changed in 2.0).
+  `DatesBRB3Web` scrapes B3's own calendar, but only covers the years B3 publishes
+  (2021–2026 today).
 - **Brazilian banking / settlement:** `DatesBRFebraban`.
 - **US market:** `DatesUSNasdaq` (market closures) — not `DatesUSFederalHolidays`, which is
   the civil federal-holiday calendar.

@@ -61,6 +61,9 @@ Generalisable: *a test that stubs the function in its own name is testing the ca
   touched here: the release workflows are the least-rehearsed code in the repo (the Test PyPI run
   does not share every step), so they deserve one considered PR rather than a drive-by edit inside a
   hygiene change. Filed separately.
+  **RESOLVED 2026-08-03 as #39 / PR #40** — which also found that both release workflows carried all
+  three of #19's cache defects on top of the regeneration fallback, and that the ledger gate crashed
+  outright on Windows (cp1252 could not encode its status glyphs). No longer open work.
 
 ## Not done, on purpose
 
