@@ -222,8 +222,20 @@ jobs:
         uses: softprops/action-gh-release@v1
         with:
           tag_name: ${{ env.TAG_NAME }}
+          # Name the artifacts explicitly — NEVER `dist/*`. `dist/.keep` is tracked and 0 bytes
+          # (it keeps the directory in git), and GitHub rejects a 0-byte asset. `@v1` tolerated it,
+          # but `@v3` creates the release as a DRAFT, uploads, then promotes — so a rejected asset
+          # leaves `draft=true`, and GitHub creates NO TAG for a draft. The wheel would already be
+          # on PyPI by then (that job runs first, and a version cannot be un-published), the run
+          # would be red, and re-dispatching cannot fix it because the index rejects the duplicate.
+          # A missing tag is not cosmetic: poetry-dynamic-versioning derives the version from it,
+          # and the next release's `git diff <tag>..HEAD` gate uses it as the base.
+          #
+          # This step exists ONLY in this workflow — release_test_pypi.yaml has no equivalent — so
+          # the Test PyPI rehearsal cannot catch a regression here. It debuts in production.
           files: |
-            dist/*
+            dist/*.whl
+            dist/*.tar.gz
           generate_release_notes: true
         env:
           GITHUB_TOKEN: ${{ github.token }}
