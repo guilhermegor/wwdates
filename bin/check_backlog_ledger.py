@@ -208,7 +208,19 @@ def check_one(str_path: str, str_text: str) -> list[str]:
 		)
 
 	for str_section in _REQUIRED_SECTIONS:
-		if not re.search(rf"^{re.escape(str_section)}\s*$", str_text, re.MULTILINE):
+		if re.search(rf"^{re.escape(str_section)}\s*$", str_text, re.MULTILINE):
+			continue
+		# A required heading carrying a trailing qualifier is the common near-miss, and calling it
+		# "missing" is actively misleading, because the section is right there on the page — the
+		# reader then goes hunting for a different problem. Name what is actually wrong instead.
+		# It is worded this way because the original phrasing cost two real debug cycles.
+		cls_near_miss = re.search(rf"^{re.escape(str_section)}\s+\S.*$", str_text, re.MULTILINE)
+		if cls_near_miss:
+			list_errors.append(
+				f"❌ {str_path}: the heading `{cls_near_miss.group(0).strip()}` must be exactly "
+				f"`{str_section}` — move the qualifier into a `###` subsection below it."
+			)
+		else:
 			list_errors.append(f"❌ {str_path}: missing the `{str_section}` section.")
 
 	if not _CHECKBOX_RE.search(work_section(str_text)):

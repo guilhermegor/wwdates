@@ -363,3 +363,24 @@ def test_ledger_author_falls_back_to_the_actor_when_there_is_no_pr(
 
 	assert checker._ledger_author() == "guilhermegor"
 	assert checker.is_bot_actor(checker._ledger_author()) is False
+
+
+def test_a_heading_with_a_trailing_qualifier_says_so_instead_of_missing() -> None:
+	"""`## Work — suffix` must be reported as a wrong heading, not as a missing section.
+
+	Reporting "missing" for a heading that is visibly on the page sends the reader hunting for the
+	wrong problem — measured twice while authoring ledgers for this very gate.
+	"""
+	str_text = VALID_LEDGER.replace("## Work\n", "## Work — the release workflows\n")
+	list_errors = checker.check([VALID_PATH], _reader({VALID_PATH: str_text}))
+
+	assert any("must be exactly" in e and "## Work" in e for e in list_errors)
+	assert not any("missing the `## Work` section" in e for e in list_errors)
+
+
+def test_a_genuinely_absent_section_still_says_missing() -> None:
+	"""The near-miss hint must not swallow the plain case."""
+	str_text = VALID_LEDGER.replace("## Goal\n", "")
+	list_errors = checker.check([VALID_PATH], _reader({VALID_PATH: str_text}))
+
+	assert any("missing the `## Goal` section" in e for e in list_errors)
