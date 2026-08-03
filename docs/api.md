@@ -174,10 +174,10 @@ working day of each year, and **24 December** (Christmas Eve). Use this provider
 
 `bool_add_christmas_eve` **defaults to `True`** because B3's published calendar carries 24 December
 as a closure (*"não haverá negociação"*) in every year it falls on a weekday — verified live for
-2021, 2024, 2025 and 2026. Pass `False` to restore the pre-1.1 behaviour, in which the offline
+2021, 2024, 2025 and 2026. Pass `False` to restore the pre-2.0 behaviour, in which the offline
 calendar omitted the date and therefore disagreed with the exchange.
 
-!!! note "Changed in 1.1"
+!!! note "Changed in 2.0"
     The default was `False` up to and including 1.0.1, so `DatesBRB3()` used to report 24 December
     as a **working** day. If you depend on that, pass `bool_add_christmas_eve=False` explicitly.
     The date is added unconditionally, so in a year where 24 December falls on a weekend it appears
