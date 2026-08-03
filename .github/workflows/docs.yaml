@@ -29,19 +29,19 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout Code
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
         with:
           # Full history + tags so `cz changelog` and the version badge can read them.
           fetch-depth: 0
 
       - name: Set Up Python
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@v7
         with:
           python-version: "3.x"
 
       - name: Cache mkdocs-material build
         run: echo "cache_id=$(date --utc '+%V')" >> "$GITHUB_ENV"
-      - uses: actions/cache@v4
+      - uses: actions/cache@v6
         with:
           key: mkdocs-material-${{ env.cache_id }}
           path: .cache
@@ -66,7 +66,7 @@ jobs:
       # Enables GitHub Pages for the repo on the first run (enablement: true) and exports the
       # base path. No-op once Pages is already enabled as build_type=workflow.
       - name: Configure Pages
-        uses: actions/configure-pages@v5
+        uses: actions/configure-pages@v6
         with:
           enablement: true
 
@@ -74,7 +74,7 @@ jobs:
         run: poetry run mkdocs build --strict
 
       - name: Upload Pages Artifact
-        uses: actions/upload-pages-artifact@v3
+        uses: actions/upload-pages-artifact@v5
         with:
           # MkDocs' default output directory.
           path: site
@@ -88,4 +88,4 @@ jobs:
     steps:
       - name: Deploy to GitHub Pages
         id: deployment
-        uses: actions/deploy-pages@v4
+        uses: actions/deploy-pages@v5
