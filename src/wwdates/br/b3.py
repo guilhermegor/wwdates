@@ -32,7 +32,7 @@ class DatesBRB3(ABCCalendarOperations):
 
 	def __init__(
 		self,
-		bool_add_christmas_eve: bool = False,
+		bool_add_christmas_eve: bool = True,
 		int_year_start: int = INT_YEAR_START_DEFAULT,
 		int_year_end: int = INT_YEAR_END_DEFAULT,
 		logger: Logger | None = None,
@@ -42,7 +42,14 @@ class DatesBRB3(ABCCalendarOperations):
 		Parameters
 		----------
 		bool_add_christmas_eve : bool
-			If True, adds Christmas Eve to the list of holidays (default: False)
+			If True, 24 December is a non-trading day (default: True). This matches B3, whose
+			published calendar carries 24 December as a closure ("não haverá negociação") in
+			every year it falls on a weekday — verified live for 2021, 2024, 2025 and 2026.
+			Pass False for the pre-1.1 behaviour, in which the offline calendar omitted it and
+			therefore disagreed with the exchange. Note that the date is added unconditionally,
+			so in a year where 24 December falls on a weekend it appears in the holiday list
+			even though B3 omits it (harmless for working-day arithmetic — a weekend is already
+			non-working — and excused by the drift job's offline-only weekend rule).
 		int_year_start : int
 			First year to include (default: 2001).
 		int_year_end : int

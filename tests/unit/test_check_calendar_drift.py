@@ -209,24 +209,18 @@ def test_the_allowlist_does_not_suppress_the_opposite_direction(drift: ModuleTyp
 # --------------------------
 
 
-def test_b3_known_web_only_excuses_christmas_eve_for_every_published_year(
-	drift: ModuleType,
-) -> None:
-	"""B3 publishes 24 December as a closure while the offline default omits it.
+def test_b3_known_web_only_no_longer_excuses_christmas_eve(drift: ModuleType) -> None:
+	"""24 December must NOT be excused any more (issue #35).
 
-	Excused deliberately: the disagreement is real but already tracked as an open decision on
-	``bool_add_christmas_eve``, so restating it weekly would be noise, not signal.
+	The excuse existed only because the offline default omitted the date while B3 publishes it.
+	Now that ``bool_add_christmas_eve`` defaults to True, both sides agree and there is nothing to
+	excuse — and keeping the excuse would actively **suppress signal**: if B3 ever stopped
+	publishing 24 December on a weekday while the offline calendar still added it, that is exactly
+	what the job should report.
 	"""
 	frozenset_excused = drift.b3_known_web_only({date(2024, 1, 1), date(2026, 5, 1)})
-	assert date(2024, 12, 24) in frozenset_excused
-	assert date(2026, 12, 24) in frozenset_excused
-
-
-def test_b3_known_web_only_does_not_excuse_years_the_source_never_returned(
-	drift: ModuleType,
-) -> None:
-	"""The excused span follows the data, so the allowlist never reaches beyond it."""
-	assert date(2030, 12, 24) not in drift.b3_known_web_only({date(2026, 5, 1)})
+	assert date(2024, 12, 24) not in frozenset_excused
+	assert date(2026, 12, 24) not in frozenset_excused
 
 
 def test_b3_known_web_only_excuses_the_2021_sao_paulo_closures(drift: ModuleType) -> None:

@@ -187,25 +187,33 @@ class CalendarPair:
 def b3_known_web_only(set_web: set[date]) -> frozenset[date]:
 	"""Return the B3 dates expected on the scrape but not in the offline calendar.
 
-	Two groups: the 2021 São Paulo closures B3 stopped observing, and **Christmas Eve**. B3
-	publishes 24 December as a genuine closure in every year it falls on a weekday, while
-	``DatesBRB3`` defaults to ``bool_add_christmas_eve=False`` — so it would otherwise be
-	reported every single year. That disagreement is real but already tracked as an open
-	decision in ``docs/backlog/dehydrate-calendars_20260704_130854.md``; excusing it here keeps
-	the job's signal about *new* divergences instead of restating a known one weekly.
+	One group now: the 2021 São Paulo closures B3 stopped observing afterwards.
+
+	**Christmas Eve used to be excused here and deliberately is not any more** (issue #35). The
+	excuse existed only because ``DatesBRB3`` defaulted to ``bool_add_christmas_eve=False`` while
+	B3 publishes 24 December as a closure in every year it falls on a weekday — so the divergence
+	was real, known, and would have been restated weekly. That default is now ``True``, so both
+	sides agree and there is nothing to excuse. Keeping the excuse would be worse than dead code:
+	it would **suppress real signal** — if B3 ever stops publishing 24 December on a weekday while
+	the offline calendar still adds it, that is exactly what this job should report.
+
+	A year where 24 December falls on a weekend needs no entry either: the date is then
+	offline-only, and the pair's ``bool_offline_only_weekend_ok`` already covers it, because B3
+	omits weekends (there is no session to cancel).
 
 	Parameters
 	----------
 	set_web : set of datetime.date
-		The dates the live source returned, used to size the Christmas Eve span.
+		The dates the live source returned. Unused now that the span-dependent Christmas Eve group
+		is gone, but kept so the ``callable_known_web_only`` signature stays uniform across pairs.
 
 	Returns
 	-------
 	frozenset of datetime.date
 		The excused web-only dates.
 	"""
-	set_years = {date_.year for date_ in set_web}
-	return _B3_KNOWN_WEB_ONLY_2021 | frozenset({date(int_year, 12, 24) for int_year in set_years})
+	del set_web  # signature kept uniform across pairs; see the note above
+	return _B3_KNOWN_WEB_ONLY_2021
 
 
 def _uncached(cls_web: Callable[..., Any]) -> Callable[[], Any]:
