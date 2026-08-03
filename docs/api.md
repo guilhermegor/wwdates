@@ -162,17 +162,27 @@ The **default, recommended** B3 calendar — computed **offline**, no network an
 from wwdates.br.b3 import DatesBRB3
 
 DatesBRB3(
-    bool_add_christmas_eve=False,             # also treat 24 Dec as a holiday
+    bool_add_christmas_eve=True,              # 24 Dec is a non-trading day (default)
     int_year_start=2001, int_year_end=2099,
     logger=None,
 )
 ```
 
 **Holidays:** the **national** set **plus** the B3 exchange's own non-trading days — the last
-working day of each year, on which the exchange does not trade. Pass
-`bool_add_christmas_eve=True` to additionally treat **24 December** (Christmas Eve) as a holiday,
-matching B3's partial/closed-session convention. Use this provider for **trading-day** logic on
-the Brazilian exchange.
+working day of each year, and **24 December** (Christmas Eve). Use this provider for
+**trading-day** logic on the Brazilian exchange.
+
+`bool_add_christmas_eve` **defaults to `True`** because B3's published calendar carries 24 December
+as a closure (*"não haverá negociação"*) in every year it falls on a weekday — verified live for
+2021, 2024, 2025 and 2026. Pass `False` to restore the pre-1.1 behaviour, in which the offline
+calendar omitted the date and therefore disagreed with the exchange.
+
+!!! note "Changed in 1.1"
+    The default was `False` up to and including 1.0.1, so `DatesBRB3()` used to report 24 December
+    as a **working** day. If you depend on that, pass `bool_add_christmas_eve=False` explicitly.
+    The date is added unconditionally, so in a year where 24 December falls on a weekend it appears
+    in the holiday list even though B3 omits it — harmless for working-day arithmetic, since a
+    weekend is already non-working.
 
 **Source:** the `holidays` package + B3 exchange rules (offline computation).
 
@@ -182,7 +192,7 @@ the Brazilian exchange.
 |--------|-----------|---------|-------------|
 | `holidays_to_add` | `(set_dates_national)` | `list[tuple[str, date]]` | The extra `(name, date)` pairs B3 adds beyond the national set. |
 | `get_last_working_day` | `(int_year, set_dates_national)` | `date` | The year's last non-weekend, non-holiday day. |
-| `get_christmas_eve` | `(int_year)` | `date` | 24 December of `int_year` (added when `bool_add_christmas_eve` is set). |
+| `get_christmas_eve` | `(int_year)` | `date` | 24 December of `int_year` (added unless `bool_add_christmas_eve=False`). |
 
 ### `DatesBRB3Web`
 

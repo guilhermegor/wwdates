@@ -147,20 +147,26 @@ def test_last_working_day_skips_weekends(
 	assert cls_cal.get_last_working_day(int_year, set_dates) == date_expected
 
 
-def test_b3_christmas_eve_is_opt_in() -> None:
-	"""Christmas Eve is only a non-trading day when explicitly requested.
+def test_b3_christmas_eve_is_opt_out() -> None:
+	"""Christmas Eve is a non-trading day by default, and can be opted out of.
+
+	B3's published calendar carries 24 December as a closure in every year it falls on a weekday,
+	so the default must agree with the exchange (issue #35). 2026-12-24 is a Thursday, which is
+	why this year is used: on a weekend year the assertion would hold for the wrong reason.
 
 	Returns
 	-------
 	None
 	"""
+	assert date(2026, 12, 24).weekday() < 5, "pick a year where 24 Dec is a weekday"
+
 	kwargs = {"int_year_start": 2026, "int_year_end": 2026}
-	set_without = {date_ for _, date_ in DatesBRB3(**kwargs)._source_holidays()}
-	set_with = {
-		date_ for _, date_ in DatesBRB3(bool_add_christmas_eve=True, **kwargs)._source_holidays()
+	set_default = {date_ for _, date_ in DatesBRB3(**kwargs)._source_holidays()}
+	set_opted_out = {
+		date_ for _, date_ in DatesBRB3(bool_add_christmas_eve=False, **kwargs)._source_holidays()
 	}
-	assert date(2026, 12, 24) not in set_without
-	assert set_with - set_without == {date(2026, 12, 24)}
+	assert date(2026, 12, 24) in set_default
+	assert set_default - set_opted_out == {date(2026, 12, 24)}
 
 
 def test_b3_holidays_are_sorted(b3_instance: DatesBRB3) -> None:

@@ -127,11 +127,15 @@ Tracked in git but **excluded from the published docs site** (`exclude_docs` in 
       collided. The decorator already supported callable keys — only its `key: str` annotation
       blocked them. Also removed two stale `type: ignore[override]` comments that mypy had been
       flagging on `main`.
-- [ ] **Decide `bool_add_christmas_eve`'s default.** B3's own page publishes 24 December as a
+- [x] **Decide `bool_add_christmas_eve`'s default.** B3's own page publishes 24 December as a
       genuine closure ("não haverá negociação") in every year it falls on a weekday (2021, 2024,
       2025, 2026), which means the offline class's `bool_add_christmas_eve=False` default
       disagrees with the exchange. Left unchanged — flipping it is a behaviour change beyond
       issue #7's scope — but it is now evidence-backed, not a matter of taste.
+      **RESOLVED 2026-08-03 by #35: flipped to `True`.** The evidence above was the whole
+      argument; what remained was the decision, which is now taken. The drift job's Christmas Eve
+      excuse was removed in the same change — with both sides agreeing there is nothing to excuse,
+      and keeping it would have suppressed real signal.
 - [x] **OIDC `release_*` workflows proven live on the remote (2026-08-01).** Both trusted
       publishers were corrected to the per-index environments (`release_test_pypi` /
       `release_pypi`) and both workflows published end-to-end with no stored token, during the
