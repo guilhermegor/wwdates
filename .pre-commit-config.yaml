@@ -108,14 +108,20 @@ repos:
           - python
         pass_filenames: false
 
-      # Shape gate for docs/backlog ledgers. Unlike the sibling repos' version, this does NOT
-      # require a ledger to exist (issue #15: that would block trivial fix branches) — it only
-      # validates the ones being committed, so pre-commit's own file list is the input.
+      # Work-ledger gate: SHAPE of every ledger in the branch diff, plus EXISTENCE of one when the
+      # diff touches a src/ci path (issue #26 — #15 shipped shape-only).
+      #
+      # `always_run` + `pass_filenames: false` are load-bearing, not boilerplate. A `files:`
+      # selector would only fire when a ledger itself changed, which is precisely the case where
+      # existence is already satisfied — the commit to catch is the one touching `src/` with NO
+      # ledger, and that commit matches no `docs/backlog/` path. Filtering the input here would
+      # make the gate a no-op exactly when it matters. The script computes the branch diff itself.
       - id: check-backlog-ledger
-        name: backlog ledger shape check
+        name: backlog ledger shape + existence check
         entry: bash bin/poetry_exec.sh run python bin/check_backlog_ledger.py
         language: system
-        files: ^docs/backlog/.*\.md$
+        always_run: true
+        pass_filenames: false
 
       - id: mypy
         name: mypy (static type check)

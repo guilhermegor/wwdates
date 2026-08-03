@@ -210,3 +210,156 @@ def test_is_ledger_path_rejects_a_lookalike_directory() -> None:
 	assert checker.is_ledger_path("docs/backlog/x_20260101_010101.md") is True
 	assert checker.is_ledger_path("docs/backlog/nested/x_20260101_010101.md") is False
 	assert checker.is_ledger_path("docs/backlog/notes.txt") is False
+
+
+# --------------------------------------------------------------------------------------------
+# Existence half (issue #26). `check` takes the path list, so these run with no git working tree.
+# --------------------------------------------------------------------------------------------
+
+
+def test_src_diff_without_a_ledger_is_an_error() -> None:
+	"""THE should-fail case: touching shipped source with no ledger must fail, by message.
+
+	This is the whole point of the existence half. If this test ever passes trivially, the gate
+	has become a no-op (see the `every-gate-needs-a-should-fail-test` lesson).
+	"""
+	list_paths = ["src/wwdates/us/federal_holidays.py"]
+	list_errors = checker.check(list_paths, _reader({}), bool_require_existence=True)
+
+	assert any("adds no" in e and "work ledger" in e for e in list_errors)
+
+
+def test_src_diff_with_a_ledger_is_clean() -> None:
+	"""The same diff satisfies the rule once a ledger rides along."""
+	list_paths = ["src/wwdates/us/federal_holidays.py", VALID_PATH]
+
+	list_errors = checker.check(
+		list_paths, _reader({VALID_PATH: VALID_LEDGER}), bool_require_existence=True
+	)
+
+	assert list_errors == []
+
+
+def test_ci_diff_without_a_ledger_is_an_error() -> None:
+	"""A workflow change is `ci`, which also owes a ledger."""
+	list_errors = checker.check(
+		[".github/workflows/tests.yaml"], _reader({}), bool_require_existence=True
+	)
+
+	assert any("work ledger" in e for e in list_errors)
+
+
+@pytest.mark.parametrize(
+	"str_path",
+	["docs/usage.md", "README.md", "tests/unit/test_x.py", "poetry.lock", "pyproject.toml"],
+)
+def test_exempt_classes_never_demand_a_ledger(str_path: str) -> None:
+	"""Docs / tests / deps stay free — the trivial-branch case #15 actually cared about.
+
+	PR #28 (a one-line docs fix) is the live example: it needed no ledger.
+
+	Parameters
+	----------
+	str_path : str
+		A changed path whose class is exempt.
+	"""
+	assert checker.check([str_path], _reader({}), bool_require_existence=True) == []
+
+
+def test_a_ci_path_beside_a_tests_path_still_demands_a_ledger() -> None:
+	"""Regression for the per-path design.
+
+	`classify_risk` on the WHOLE list returns only the most-dangerous class and ranks `tests`
+	above `ci`, so this diff collapses to `tests` and would escape. Asking per path keeps it
+	honest — verified here against the collapsing call itself.
+	"""
+	list_paths = ["bin/lint_yaml.sh", "tests/unit/test_x.py"]
+
+	assert checker.pr_gate.classify_risk(list_paths) == "tests"
+	assert checker.requires_ledger(list_paths) is True
+	assert checker.check(list_paths, _reader({}), bool_require_existence=True) != []
+
+
+def test_existence_is_off_by_default() -> None:
+	"""An explicit ad-hoc run stays shape-only, so it never demands a branch context."""
+	assert checker.check(["src/wwdates/main.py"], _reader({})) == []
+
+
+def test_a_ledger_alone_satisfies_nothing_but_also_demands_nothing() -> None:
+	"""A ledger-only diff is `docs`, so it is exempt — and its shape is still checked."""
+	list_errors = checker.check(
+		[VALID_PATH], _reader({VALID_PATH: VALID_LEDGER}), bool_require_existence=True
+	)
+
+	assert list_errors == []
+
+
+def test_shape_errors_still_surface_alongside_the_existence_check() -> None:
+	"""Both halves report together — a malformed ledger is not masked by a satisfied existence."""
+	str_bad = VALID_LEDGER.replace("## Goal\n", "")
+	list_paths = ["src/wwdates/main.py", VALID_PATH]
+	list_errors = checker.check(
+		list_paths, _reader({VALID_PATH: str_bad}), bool_require_existence=True
+	)
+
+	assert any("missing the `## Goal` section" in e for e in list_errors)
+
+
+@pytest.mark.parametrize(
+	("str_actor", "bool_expected"),
+	[
+		("dependabot[bot]", True),
+		("github-actions[bot]", True),
+		("DependaBot[Bot]", True),
+		("guilhermegor", False),
+		("", False),
+		(None, False),
+	],
+)
+def test_is_bot_actor(str_actor: str | None, bool_expected: bool) -> None:
+	"""The `[bot]` suffix is the whole test — no allow-list to go stale.
+
+	`None`/empty is deliberately NOT a bot: a local run must still satisfy the rule.
+
+	Parameters
+	----------
+	str_actor : str or None
+		The acting user.
+	bool_expected : bool
+		Whether it should be treated as a bot.
+	"""
+	assert checker.is_bot_actor(str_actor) is bool_expected
+
+
+def test_ledger_author_prefers_the_pr_author_over_the_run_actor(
+	monkeypatch: pytest.MonkeyPatch,
+) -> None:
+	"""GITHUB_ACTOR becomes whoever re-ran the job, which would cancel a bot's exemption.
+
+	Parameters
+	----------
+	monkeypatch : pytest.MonkeyPatch
+		Fixture used to set the environment.
+	"""
+	monkeypatch.setenv("GITHUB_ACTOR", "guilhermegor")
+	monkeypatch.setenv("LEDGER_PR_AUTHOR", "dependabot[bot]")
+
+	assert checker._ledger_author() == "dependabot[bot]"
+	assert checker.is_bot_actor(checker._ledger_author()) is True
+
+
+def test_ledger_author_falls_back_to_the_actor_when_there_is_no_pr(
+	monkeypatch: pytest.MonkeyPatch,
+) -> None:
+	"""No PR payload (a push, a local run) -> the actor is the right answer, and it is human.
+
+	Parameters
+	----------
+	monkeypatch : pytest.MonkeyPatch
+		Fixture used to set the environment.
+	"""
+	monkeypatch.delenv("LEDGER_PR_AUTHOR", raising=False)
+	monkeypatch.setenv("GITHUB_ACTOR", "guilhermegor")
+
+	assert checker._ledger_author() == "guilhermegor"
+	assert checker.is_bot_actor(checker._ledger_author()) is False
