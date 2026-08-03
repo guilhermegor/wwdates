@@ -460,7 +460,22 @@ if __name__ == "__main__":
 	if list_argv:
 		list_found = check(list_argv, _read_text)
 	else:
-		list_found = check(_changed_paths(), _read_text, bool_require_existence=True)
+		list_changed = _changed_paths()
+		# Say what was examined, ALWAYS. A silent pass is indistinguishable from a gate that looked
+		# at nothing, and there are two ways to end up with an empty list that do not mean clean —
+		# a base ref that never resolved, such as under a shallow CI clone with no merge-base, and
+		# a diff command that failed. Printing the count turns a vacuous pass into a visible one in
+		# the CI log. See the `every-gate-needs-a-should-fail-test` lesson.
+		if not list_changed:
+			print(
+				"ℹ️  work ledger: no changed paths resolved against the base — "
+				"nothing to check. On a feature branch this means the base ref did not resolve "
+				"(a shallow clone has no merge-base; CI needs fetch-depth: 0), NOT that the "
+				"branch is clean."
+			)
+		else:
+			print(f"ℹ️  work ledger: examined {len(list_changed)} changed path(s).")
+		list_found = check(list_changed, _read_text, bool_require_existence=True)
 
 	for str_line in list_found:
 		print(str_line)
