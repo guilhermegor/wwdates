@@ -36,6 +36,11 @@ will drift with every new branch.
 whenever a `src`/`ci` path is touched — while barely checking the ledger's content (name + any
 checkbox).
 
+> ⚠️ **SUPERSEDED 2026-08-03 by #26 / PR #29 — both bullets below are now FALSE.** `bin/pr_gate.py`
+> **does** exist here (ported in #26), and the existence half **is** enforced for `src`/`ci` paths.
+> The section is kept as the record of what #15 decided; do not read it as current behaviour. The
+> live rule lives in `bin/check_backlog_ledger.py`'s docstring.
+
 This port keeps only the shape half, because:
 
 - wwdates has **no `bin/pr_gate.py`**, so the risk-class axis does not exist here. Porting it
@@ -67,3 +72,7 @@ Worth recording because it is the same failure shape as the CI cache bug found i
 
 - Requiring a ledger to *exist* for every branch. The gate checks the shape of ledgers that are
   there; making one mandatory would block trivial fix branches for no gain.
+  **REVERSED 2026-08-03 by #26 / PR #29.** Existence *is* now required — but only for `src`/`ci`
+  paths, which answers the worry above rather than overriding it: a docs-only or tests-only branch
+  stays free (PR #28, a one-line docs fix, needed no ledger). A one-line `src/` fix does now owe
+  one; that cost was accepted deliberately over an opt-out flag that erodes once habitual.
