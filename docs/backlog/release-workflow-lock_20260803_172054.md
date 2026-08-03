@@ -43,6 +43,29 @@ fourth unique to them:
       CLI** in a throwaway git repo, so the env wiring (`LEDGER_PR_AUTHOR` / `LEDGER_BASE_REF`) is
       exercised rather than assumed.
 
+### A real Windows bug the new test found immediately
+
+- [x] The first CI run of this PR **failed on Windows** — all 5 new cases, one cause:
+      `UnicodeEncodeError: 'charmap' codec can't encode characters in position 0-1`. Windows defaults
+      stdout to cp1252, which cannot encode the `ℹ️`/`❌` status glyphs, so the gate **crashed before
+      reporting anything**.
+- [x] This is a bug in the **gate**, not in the test. And it is not cosmetic: the pre-commit hook is
+      `always_run`, so **every commit on a Windows checkout** would have died. It stayed invisible
+      because the hook is normally run on Linux and the CI step is gated on
+      `runner.os == 'Linux'` — the integration test added here is the first thing that ever ran this
+      script on Windows.
+- [x] Fixed in `__main__` by forcing UTF-8 on `sys.stdout`/`sys.stderr` (keeping the house glyph
+      style rather than stripping it). The test also passes `encoding="utf-8"` to `subprocess.run`,
+      because `text=True` alone decodes with the *parent's* locale encoding — which would re-create
+      the mismatch on the reading side after the child wrote correctly.
+- [x] **Reproduced locally, properly.** A first attempt was vacuous — it copied the script out of
+      `bin/`, so it died on the `pr_gate` sibling import before printing, and the "fixed" half ran in
+      shape-only mode which prints nothing. Redone in place, no-arg mode, `PYTHONIOENCODING=cp1252`:
+      pre-fix → **exit 1** with the exact CI error; fixed → **exit 0**, glyph printed, stderr empty.
+- [x] Added `test_the_gate_survives_a_non_utf8_console`, which forces `PYTHONIOENCODING=cp1252` so
+      this **Windows-only bug is now catchable on Linux**. Mutation-tested: removing the reconfigure
+      breaks *only* that test.
+
 ### The gate's own diagnostic, fixed because it misled me
 
 - [x] Writing this very ledger, I used `## Work — the release workflows`. The gate correctly

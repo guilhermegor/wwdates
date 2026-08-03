@@ -452,6 +452,18 @@ def _read_text(str_path: str) -> str | None:
 
 
 if __name__ == "__main__":
+	# Force UTF-8 on the output streams. Windows defaults stdout to cp1252, which cannot encode
+	# the status glyphs printed below, so the first write raises UnicodeEncodeError and the gate
+	# CRASHES instead of reporting. That is not cosmetic — the pre-commit hook is `always_run`, so
+	# no commit could be made at all from a Windows checkout.
+	#
+	# It stayed invisible because the hook is normally run on Linux, and the CI step that
+	# calls this script is Linux-gated. The integration test added in #39 is the first thing
+	# that ever ran it on Windows, and all five of its cases failed at once.
+	for cls_stream in (sys.stdout, sys.stderr):
+		if hasattr(cls_stream, "reconfigure"):
+			cls_stream.reconfigure(encoding="utf-8", errors="replace")
+
 	# The bot exemption lives here, in the I/O seam, so `check` stays pure and unit-testable
 	# without an environment. See `is_bot_actor` for why bots are exempt, and `_ledger_author` for
 	# why the PR's author — not the run's actor — is the value that decides it.

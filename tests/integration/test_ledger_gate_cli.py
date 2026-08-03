@@ -83,7 +83,7 @@ def _seed_repo(cls_repo: Path, str_changed_path: str) -> str:
 
 
 def _run_gate(
-	cls_repo: Path, str_base: str, str_author: str | None
+	cls_repo: Path, str_base: str, str_author: str | None, str_io_encoding: str | None = None
 ) -> subprocess.CompletedProcess[str]:
 	"""Invoke the gate the way pre-commit and CI do: no arguments, env-driven.
 
@@ -95,6 +95,9 @@ def _run_gate(
 		Value for ``LEDGER_BASE_REF``.
 	str_author : str or None
 		Value for ``LEDGER_PR_AUTHOR``; ``None`` leaves it unset (a human, local run).
+	str_io_encoding : str or None, optional
+		Value for ``PYTHONIOENCODING``, used to reproduce a non-UTF-8 console such as Windows'
+		cp1252 default. ``None`` leaves the interpreter default.
 
 	Returns
 	-------
@@ -109,13 +112,20 @@ def _run_gate(
 	dict_env.pop("GITHUB_ACTOR", None)
 	if str_author is not None:
 		dict_env["LEDGER_PR_AUTHOR"] = str_author
+	if str_io_encoding is not None:
+		dict_env["PYTHONIOENCODING"] = str_io_encoding
 
+	# `encoding="utf-8"` is required, not cosmetic: the gate forces UTF-8 on its own stdout, and
+	# `text=True` alone would decode with the parent's locale encoding (cp1252 on Windows),
+	# turning the glyphs into mojibake on the reading side after they were written correctly.
+	#
 	# Trusted, constant argv: the interpreter plus a repo-local script path — bandit S603.
 	return subprocess.run(  # noqa: S603
 		[sys.executable, str(cls_script)],
 		cwd=cls_repo,
 		capture_output=True,
 		text=True,
+		encoding="utf-8",
 		check=False,
 		env=dict_env,
 	)
@@ -213,3 +223,29 @@ def test_a_human_pr_with_a_ledger_passes(tmp_path: Path) -> None:
 	cls_proc = _run_gate(tmp_path, str_base, None)
 
 	assert cls_proc.returncode == 0, cls_proc.stdout + cls_proc.stderr
+
+
+def test_the_gate_survives_a_non_utf8_console(tmp_path: Path) -> None:
+	"""Regression: the status glyphs must not crash the gate on a cp1252 console.
+
+	Windows defaults stdout to cp1252, which cannot encode them, so `print()` raised
+	UnicodeEncodeError and the gate died before reporting anything — and since its pre-commit hook
+	is ``always_run``, that broke **every** commit on a Windows checkout. It went unseen because
+	the hook is normally run on Linux and the CI step is gated on Linux; the matrix caught it
+	only once these tests existed.
+
+	Forcing ``PYTHONIOENCODING`` reproduces it on any platform, so this no longer depends on the
+	Windows leg to be caught.
+
+	Parameters
+	----------
+	tmp_path : pathlib.Path
+		pytest's per-test temporary directory.
+	"""
+	str_base = _seed_repo(tmp_path, "src/wwdates/thing.py")
+
+	cls_proc = _run_gate(tmp_path, str_base, "dependabot[bot]", str_io_encoding="cp1252")
+
+	assert cls_proc.returncode == 0, cls_proc.stdout + cls_proc.stderr
+	assert "UnicodeEncodeError" not in cls_proc.stderr
+	assert "bot-authored branch" in cls_proc.stdout
