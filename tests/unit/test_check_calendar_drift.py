@@ -503,3 +503,176 @@ def test_main_opens_an_issue_when_there_is_real_drift(
 	monkeypatch.setenv("GITHUB_REPOSITORY", "guilhermegor/wwdates")
 	assert drift.main() == 0
 	assert len(list_calls) == 1
+
+
+# --------------------------------------------------------------------------------------------
+# upsert_issue — the WRITE half (issue #33).
+#
+# Every pre-existing test here monkeypatches `upsert_issue` ITSELF, which tests whether `main`
+# decides to call it — never what it does. So its body (GET -> PATCH-or-POST) had never executed
+# in any test, and never in production either, because there has never been real drift. These
+# cases drive it with `_api` stubbed, so nothing touches the network and the conftest socket
+# guard stays intact.
+# --------------------------------------------------------------------------------------------
+
+
+def _record_api(list_calls: list[tuple], object_get_result: object) -> object:
+	"""Build an ``_api`` stub that records calls and answers the GET with a fixture.
+
+	Parameters
+	----------
+	list_calls : list of tuple
+		Sink receiving ``(method, url, body)`` for every call.
+	object_get_result : object
+		What the ``GET`` should return (the open-issues list).
+
+	Returns
+	-------
+	object
+		A callable with ``_api``'s signature.
+	"""
+
+	def _api(str_method: str, str_url: str, dict_body: dict | None = None) -> object:
+		"""Record one call and return the fixture for a GET.
+
+		Parameters
+		----------
+		str_method : str
+			HTTP method.
+		str_url : str
+			Request URL.
+		dict_body : dict, optional
+			Request body.
+
+		Returns
+		-------
+		object
+			The GET fixture, or an empty dict for writes.
+		"""
+		list_calls.append((str_method, str_url, dict_body))
+		return object_get_result if str_method == "GET" else {}
+
+	return _api
+
+
+def test_upsert_issue_opens_one_issue_when_none_exists(
+	drift: ModuleType, monkeypatch: pytest.MonkeyPatch
+) -> None:
+	"""No open tracker -> exactly one POST carrying title, body and label.
+
+	Parameters
+	----------
+	drift : ModuleType
+		The loaded drift module.
+	monkeypatch : pytest.MonkeyPatch
+		Fixture used to stub the API seam.
+	"""
+	list_calls: list[tuple] = []
+	monkeypatch.setattr(drift, "_api", _record_api(list_calls, []))
+
+	drift.upsert_issue("https://api.github.com/repos/o/r", ["b3: drifted"], [])
+
+	list_posts = [c for c in list_calls if c[0] == "POST"]
+	list_patches = [c for c in list_calls if c[0] == "PATCH"]
+	assert len(list_posts) == 1
+	assert not list_patches
+	assert list_posts[0][1].endswith("/issues")
+	assert list_posts[0][2]["title"] == drift._ISSUE_TITLE
+	assert list_posts[0][2]["labels"] == [drift._ISSUE_LABEL]
+	assert "b3: drifted" in list_posts[0][2]["body"]
+
+
+def test_upsert_issue_updates_in_place_when_one_exists(
+	drift: ModuleType, monkeypatch: pytest.MonkeyPatch
+) -> None:
+	"""An existing tracker -> one PATCH to that issue, and NO second issue opened.
+
+	This is the dedupe the ledger flagged as most likely to be wrong: a broken marker match
+	would open a fresh issue on every weekly run.
+
+	Parameters
+	----------
+	drift : ModuleType
+		The loaded drift module.
+	monkeypatch : pytest.MonkeyPatch
+		Fixture used to stub the API seam.
+	"""
+	list_calls: list[tuple] = []
+	list_open = [{"number": 77, "body": f"stale text\n{drift._ISSUE_MARKER}\nmore"}]
+	monkeypatch.setattr(drift, "_api", _record_api(list_calls, list_open))
+
+	drift.upsert_issue("https://api.github.com/repos/o/r", ["b3: drifted"], [])
+
+	list_patches = [c for c in list_calls if c[0] == "PATCH"]
+	assert len(list_patches) == 1
+	assert list_patches[0][1].endswith("/issues/77")
+	assert not [c for c in list_calls if c[0] == "POST"]
+
+
+def test_upsert_issue_queries_only_open_issues_with_the_label(
+	drift: ModuleType, monkeypatch: pytest.MonkeyPatch
+) -> None:
+	"""The GET must filter by state=open AND the label, or it dedupes against the wrong set.
+
+	Parameters
+	----------
+	drift : ModuleType
+		The loaded drift module.
+	monkeypatch : pytest.MonkeyPatch
+		Fixture used to stub the API seam.
+	"""
+	list_calls: list[tuple] = []
+	monkeypatch.setattr(drift, "_api", _record_api(list_calls, []))
+
+	drift.upsert_issue("https://api.github.com/repos/o/r", ["b3: drifted"], [])
+
+	str_get_url = next(c[1] for c in list_calls if c[0] == "GET")
+	assert "state=open" in str_get_url
+	assert f"labels={drift._ISSUE_LABEL}" in str_get_url
+
+
+def test_upsert_issue_body_carries_the_marker_it_later_matches_on(
+	drift: ModuleType, monkeypatch: pytest.MonkeyPatch
+) -> None:
+	"""The written body must contain the marker `find_open_drift_issue` searches for.
+
+	Closes the loop between the two halves: if the writer stopped emitting the marker, the
+	reader would never find the issue again and would open a duplicate every run — with both
+	halves passing their own tests.
+
+	Parameters
+	----------
+	drift : ModuleType
+		The loaded drift module.
+	monkeypatch : pytest.MonkeyPatch
+		Fixture used to stub the API seam.
+	"""
+	list_calls: list[tuple] = []
+	monkeypatch.setattr(drift, "_api", _record_api(list_calls, []))
+
+	drift.upsert_issue("https://api.github.com/repos/o/r", ["b3: drifted"], ["us: unreachable"])
+
+	str_body = next(c[2]["body"] for c in list_calls if c[0] == "POST")
+	assert drift._ISSUE_MARKER in str_body
+	assert drift.find_open_drift_issue([{"number": 5, "body": str_body}]) == 5
+
+
+def test_upsert_issue_surfaces_errors_alongside_problems(
+	drift: ModuleType, monkeypatch: pytest.MonkeyPatch
+) -> None:
+	"""A source that could not be checked must still reach the issue body.
+
+	Parameters
+	----------
+	drift : ModuleType
+		The loaded drift module.
+	monkeypatch : pytest.MonkeyPatch
+		Fixture used to stub the API seam.
+	"""
+	list_calls: list[tuple] = []
+	monkeypatch.setattr(drift, "_api", _record_api(list_calls, []))
+
+	drift.upsert_issue("https://api.github.com/repos/o/r", ["b3: drifted"], ["us: unreachable"])
+
+	str_body = next(c[2]["body"] for c in list_calls if c[0] == "POST")
+	assert "us: unreachable" in str_body
