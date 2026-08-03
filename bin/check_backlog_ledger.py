@@ -208,7 +208,19 @@ def check_one(str_path: str, str_text: str) -> list[str]:
 		)
 
 	for str_section in _REQUIRED_SECTIONS:
-		if not re.search(rf"^{re.escape(str_section)}\s*$", str_text, re.MULTILINE):
+		if re.search(rf"^{re.escape(str_section)}\s*$", str_text, re.MULTILINE):
+			continue
+		# A required heading carrying a trailing qualifier is the common near-miss, and calling it
+		# "missing" is actively misleading, because the section is right there on the page — the
+		# reader then goes hunting for a different problem. Name what is actually wrong instead.
+		# It is worded this way because the original phrasing cost two real debug cycles.
+		cls_near_miss = re.search(rf"^{re.escape(str_section)}\s+\S.*$", str_text, re.MULTILINE)
+		if cls_near_miss:
+			list_errors.append(
+				f"❌ {str_path}: the heading `{cls_near_miss.group(0).strip()}` must be exactly "
+				f"`{str_section}` — move the qualifier into a `###` subsection below it."
+			)
+		else:
 			list_errors.append(f"❌ {str_path}: missing the `{str_section}` section.")
 
 	if not _CHECKBOX_RE.search(work_section(str_text)):
@@ -440,6 +452,18 @@ def _read_text(str_path: str) -> str | None:
 
 
 if __name__ == "__main__":
+	# Force UTF-8 on the output streams. Windows defaults stdout to cp1252, which cannot encode
+	# the status glyphs printed below, so the first write raises UnicodeEncodeError and the gate
+	# CRASHES instead of reporting. That is not cosmetic — the pre-commit hook is `always_run`, so
+	# no commit could be made at all from a Windows checkout.
+	#
+	# It stayed invisible because the hook is normally run on Linux, and the CI step that
+	# calls this script is Linux-gated. The integration test added in #39 is the first thing
+	# that ever ran it on Windows, and all five of its cases failed at once.
+	for cls_stream in (sys.stdout, sys.stderr):
+		if hasattr(cls_stream, "reconfigure"):
+			cls_stream.reconfigure(encoding="utf-8", errors="replace")
+
 	# The bot exemption lives here, in the I/O seam, so `check` stays pure and unit-testable
 	# without an environment. See `is_bot_actor` for why bots are exempt, and `_ledger_author` for
 	# why the PR's author — not the run's actor — is the value that decides it.

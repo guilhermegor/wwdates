@@ -107,35 +107,40 @@ jobs:
           virtualenvs-create: true
           version: 2.1.2
 
+      # Fail loud on a stale lock; NEVER regenerate it. This replaced an
+      # `if ! poetry check --lock; then rm -f poetry.lock; poetry lock --no-cache; fi` fallback that
+      # lived inside the install step below — the exact inverse of this repo's standing rule, and
+      # worst of all here: the lock governs the BUILD environment, including
+      # poetry-dynamic-versioning, the plugin that stamps the version from the git tag. Silently
+      # re-resolving it means publishing a wheel built with a toolchain nobody tested, and a
+      # published version cannot be un-published.
+      #
+      # Its own UNCONDITIONAL step, placed BEFORE the cache restore. Inside the cache-guarded step
+      # it never ran on a warm cache; after the restore it would have validated a cache artifact,
+      # because poetry.lock used to sit in the cache `path:` below.
+      - name: Verify poetry.lock Is In Sync With pyproject.toml
+        run: |
+          if ! poetry check --lock; then
+            echo "::error::poetry.lock is out of sync with pyproject.toml — run 'poetry lock' locally and commit the result." >&2
+            exit 1
+          fi
+
+      # The key MUST hash poetry.lock as well as pyproject.toml: hashing the manifest alone makes
+      # every lock-only change a cache hit, so a release would build against a stale .venv. And
+      # poetry.lock is NOT in `path:` — caching a tracked file lets a restored cache overwrite the
+      # committed lockfile. Cache build outputs, never source.
       - name: Load Cached Virtual Environment
         id: cached-venv
         uses: actions/cache@v6
         with:
-          path: |
-            .venv
-            poetry.lock
-          key: venv-${{ runner.os }}-${{ matrix.python-version }}-${{ hashFiles('pyproject.toml') }}
+          path: .venv
+          key: venv-${{ runner.os }}-${{ matrix.python-version }}-${{ hashFiles('poetry.lock', 'pyproject.toml') }}
 
+      # No pyproject.toml rewriting: the template's `pywin32` / `platform = "win32"` stripping is
+      # dead here, since wwdates declares no Windows-only dependency (see #33).
       - name: Install Dependencies
         if: steps.cached-venv.outputs.cache-hit != 'true'
         run: |
-          # temporary pyproject without Windows platform-specific dependencies
-          cp pyproject.toml pyproject.original.toml
-          cat pyproject.original.toml | python -c '
-          import sys, re
-          content = sys.stdin.read()
-          content = re.sub(r".*platform\s*=\s*\"win32\".*", "", content)
-          content = re.sub(r"pywin32\s*=.*\n", "", content)
-          print(content)
-          ' > pyproject.toml
-
-          # regenerate lock file, if needed
-          if ! poetry check --lock; then
-            echo "Lock file is outdated, regenerating..."
-            rm -f poetry.lock
-            poetry lock --no-cache
-          fi
-
           # install dependencies, excluding dev and docs groups if present
           without_groups=()
           if grep -q '\[tool.poetry.group.dev\]' pyproject.toml; then
@@ -152,8 +157,6 @@ jobs:
             poetry install --no-interaction --no-root
           fi
 
-          # restore original pyproject.toml
-          mv pyproject.original.toml pyproject.toml
           poetry env activate
 
       - name: Build Package
