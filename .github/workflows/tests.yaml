@@ -85,24 +85,16 @@ jobs:
           path: .venv
           key: venv-${{ runner.os }}-${{ matrix.python-version }}-${{ hashFiles('poetry.lock', 'pyproject.toml') }}
 
+      # No pyproject.toml rewriting here. The template ships a `python -c` transform that strips
+      # `pywin32` / `platform = "win32"` dependencies before installing on non-Windows — correct for
+      # filings-cvm, which HAS pywin32, and dead code here: wwdates declares no Windows-only
+      # dependency (the `win32` strings in poetry.lock are transitive wheel FILENAMES, not
+      # declarations). It copied, rewrote and restored pyproject.toml to no effect, and a failure
+      # partway through would have left the rewritten file behind.
       - name: Install Dependencies
         if: steps.cached-venv.outputs.cache-hit != 'true'
         run: |
-          cp pyproject.toml pyproject.original.toml
-          cat pyproject.original.toml | python -c '
-          import sys, re, os as _os
-          content = sys.stdin.read()
-          if _os.name != "nt":
-              content = re.sub(r".*platform\s*=\s*\"win32\".*", "", content)
-              content = re.sub(r"pywin32\s*=.*\n", "", content)
-          print(content)
-          ' > pyproject.toml
-
-          echo "No groups to exclude, installing all dependencies"
           poetry install --no-interaction --no-root
-
-          # Restore original pyproject.toml
-          mv pyproject.original.toml pyproject.toml
           poetry env activate
 
       - name: Run Spell Check (codespell)
